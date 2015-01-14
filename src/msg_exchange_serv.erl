@@ -1,4 +1,4 @@
--module(msg_pub_serv).
+-module(msg_exchange_serv).
 
 -include_lib("amqp_client/include/amqp_client.hrl").
 
