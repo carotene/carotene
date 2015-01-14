@@ -40,17 +40,15 @@ websocket_terminate(_Reason, _Req, _State) ->
     ok.
 
 process_message([{<<"joinexchange">>, Exchange}], State = #state{exchanges=Exs, queues=Qs}) ->
-    io:format("Exchange ~p ~n", [Exchange]),
     {ok, ExchangePid} = msg_pub_serv:start(Exchange),
     {ok, QueuePid} = msg_queue_serv:start(Exchange, self()),
-    io:format("Registered Pid~p ~n", [ExchangePid]),
     % TODO: add only once
     State#state{exchanges = dict:append(Exchange, ExchangePid, Exs), queues = dict:append(Exchange, QueuePid, Qs)};
 process_message([{<<"send">>, Message}, {<<"exchange">>, Exchange}], State = #state{exchanges=Exs}) ->
     % TODO: make robust
     {ok, [ExchangePid]} = dict:find(Exchange, Exs),
     io:format(" Pid~p ~n", [ExchangePid]),
-    gen_server:call(ExchangePid, {send, Message}),
+    gen_server:call(ExchangePid, {send, jsx:encode([{<<"message">>, Message},{<<"exchange">>, Exchange}])}),
     State;
 
 process_message(_, State) ->

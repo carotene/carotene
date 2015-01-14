@@ -31,7 +31,6 @@ init([Exchange, ReplyPid]) ->
 
     amqp_channel:subscribe(Channel, #'basic.consume'{queue = Queue,
                                                      no_ack = true}, self()),
-    io:format("wat is going on"),
     {ok, #state{channel = Channel, reply_pid = ReplyPid}}.
 
 handle_info(shutdown, State) ->
