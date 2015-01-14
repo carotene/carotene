@@ -26,7 +26,7 @@ init([Exchange, ReplyPid]) ->
 
     #'queue.declare_ok'{queue = Queue} = amqp_channel:call(Channel, #'queue.declare'{}),
     amqp_channel:call(Channel, #'queue.bind'{queue = Queue,
-                                             exchange = <<"hello">>
+                                             exchange = Exchange
                                             }),
 
     amqp_channel:subscribe(Channel, #'basic.consume'{queue = Queue,

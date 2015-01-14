@@ -10,7 +10,7 @@
 -export([stop/1]).
 
 
--record(state, {channel}).
+-record(state, {channel, exchange}).
 
 start(Exchange) ->
     Opts = [],
@@ -19,24 +19,24 @@ start(Exchange) ->
 stop(Pid) ->
     gen_server:call(Pid, stop, infinity).
 
-init(Exchange) ->
+init([Exchange]) ->
     {ok, Connection} =
         amqp_connection:start(#amqp_params_network{host = "localhost"}),
     {ok, Channel} = amqp_connection:open_channel(Connection),
 
-    amqp_channel:call(Channel, #'exchange.declare'{exchange = <<"hello">>,
+    amqp_channel:call(Channel, #'exchange.declare'{exchange = Exchange,
                                                    type = <<"fanout">>
                                                   }),
 
-    {ok, #state{channel = Channel}}.
+    {ok, #state{channel = Channel, exchange = Exchange}}.
 
 handle_info(shutdown, State) ->
     {stop, normal, State}.
 
-handle_call({send, Message}, _From, State = #state{channel = Channel}) ->
+handle_call({send, Message}, _From, State = #state{channel = Channel, exchange = Exchange}) ->
     amqp_channel:cast(Channel,
                       #'basic.publish'{
-                        exchange = <<"hello">>,
+                        exchange = Exchange,
                         routing_key = <<"">>},
                       #amqp_msg{payload = Message}),
 
