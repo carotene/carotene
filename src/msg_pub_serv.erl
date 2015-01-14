@@ -24,9 +24,10 @@ init(Exchange) ->
         amqp_connection:start(#amqp_params_network{host = "localhost"}),
     {ok, Channel} = amqp_connection:open_channel(Connection),
 
-    amqp_channel:call(Channel, #'queue.declare'{queue = <<"hello">>}),
+    amqp_channel:call(Channel, #'exchange.declare'{exchange = <<"hello">>,
+                                                   type = <<"fanout">>
+                                                  }),
 
-    io:format(" [x] Sent 'Hello World!'~n"),
     {ok, #state{channel = Channel}}.
 
 handle_info(shutdown, State) ->
@@ -35,8 +36,8 @@ handle_info(shutdown, State) ->
 handle_call({send, Message}, _From, State = #state{channel = Channel}) ->
     amqp_channel:cast(Channel,
                       #'basic.publish'{
-                        exchange = <<"">>,
-                        routing_key = <<"hello">>},
+                        exchange = <<"hello">>,
+                        routing_key = <<"">>},
                       #amqp_msg{payload = Message}),
 
     {reply, ok, State};
