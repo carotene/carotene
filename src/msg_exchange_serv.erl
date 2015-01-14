@@ -12,6 +12,7 @@
 
 -record(state, {channel, exchange}).
 
+
 start(Exchange) ->
     Opts = [],
     gen_server:start(?MODULE, [Exchange], Opts).
@@ -20,9 +21,8 @@ stop(Pid) ->
     gen_server:call(Pid, stop, infinity).
 
 init([Exchange]) ->
-    {ok, Connection} =
-        amqp_connection:start(#amqp_params_network{host = "localhost"}),
-    {ok, Channel} = amqp_connection:open_channel(Connection),
+    Transport = transport_sup:get_transport(),
+    {ok, Channel} = gen_server:call(Transport, get_channel),
 
     amqp_channel:call(Channel, #'exchange.declare'{exchange = Exchange,
                                                    type = <<"fanout">>
@@ -47,10 +47,8 @@ handle_call(stop, _From, State) ->
 handle_cast(_Message, State) ->
     {noreply, State}.
 
-terminate(_Reason, #state{channel = Channel}) ->
-    amqp_channel:close(Channel),
-    %ok = amqp_connection:close(Connection),
+terminate(_Reason, _State) ->
     ok.
 
 code_change(_OldVsn, State, _Extra) ->
-    State.
+    {ok, State}.

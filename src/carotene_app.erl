@@ -12,17 +12,7 @@
 %% ===================================================================
 
 start(_StartType, _StartArgs) ->
-    Dispatch = cowboy_router:compile([
-        {'_', [
-            {"/websocket", ws_handler, []}
-        ]}
-    ]),
-    {ok, _} = cowboy:start_http(http, 1, [{port, 8080}],
-        [{env, [{dispatch, Dispatch}]}]),
-    io:format("~s~n", ["Server started"]),
-    websocket_sup:start_link(),
-
     carotene_sup:start_link().
-   
+
 stop(_State) ->
     ok.

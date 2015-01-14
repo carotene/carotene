@@ -1,9 +1,9 @@
--module(carotene_sup).
+-module(transport_sup).
 
 -behaviour(supervisor).
 
 %% API
--export([start_link/0]).
+-export([start_link/0, get_transport/0]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -21,10 +21,17 @@ start_link() ->
 
 init([]) ->
     {ok, { {one_for_one, 5, 10}, [
-             {http_initializer,
-              {http_initializer, start_link, [self()]},
+             {transport,
+              {rabbitmq_transport, start_link, []},
               permanent,
               infinity,
               worker,
-              [http_initializer] 
+              [rabbitmq_transport] 
              } ]} }.
+
+get_transport() ->
+    Children = supervisor:which_children(?MODULE),
+    io:format("~p, ~n", Children),
+    {transport, Transport, _, _} = lists:keyfind(transport, 1, Children),
+    Transport.
+

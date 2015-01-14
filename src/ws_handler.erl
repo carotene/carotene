@@ -54,4 +54,3 @@ process_message([{<<"send">>, Message}, {<<"exchange">>, Exchange}], State = #st
 process_message(_, State) ->
     io:format("unknown message~n"),
     State .
-
