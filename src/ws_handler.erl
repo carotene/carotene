@@ -21,9 +21,7 @@ websocket_init(_TransportName, Req, _Opts) ->
     {ok, Req, #state{exchanges=dict:new(), queues=dict:new()}}.
 
 websocket_handle({text, Data}, Req, State) ->
-    io:format("~p~n", [Data]),
     Msg = jsx:decode(Data),
-    io:format("~p~n", [Msg]),
     StateNew = process_message(Msg, State),
     {ok, Req, StateNew};
 websocket_handle(_Data, Req, State) ->

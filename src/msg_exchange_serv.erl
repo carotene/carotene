@@ -1,7 +1,5 @@
 -module(msg_exchange_serv).
 
--include_lib("amqp_client/include/amqp_client.hrl").
-
 -behaviour(gen_server).
 
 -export([init/1, terminate/2, code_change/3, handle_call/3,
@@ -10,7 +8,7 @@
 -export([stop/1]).
 
 
--record(state, {channel, exchange}).
+-record(state, {exchange, broker}).
 
 
 start(Exchange) ->
@@ -21,26 +19,18 @@ stop(Pid) ->
     gen_server:call(Pid, stop, infinity).
 
 init([Exchange]) ->
-    Transport = transport_sup:get_transport(),
-    {ok, Channel} = gen_server:call(Transport, get_channel),
+    Broker = broker_sup:get_broker(),
+    ok = gen_server:call(Broker, {declare_exchange, {Exchange, <<"fanout">>}}),
 
-    amqp_channel:call(Channel, #'exchange.declare'{exchange = Exchange,
-                                                   type = <<"fanout">>
-                                                  }),
-
-    {ok, #state{channel = Channel, exchange = Exchange}}.
+    {ok, #state{exchange = Exchange, broker = Broker}}.
 
 handle_info(shutdown, State) ->
     {stop, normal, State}.
 
-handle_call({send, Message}, _From, State = #state{channel = Channel, exchange = Exchange}) ->
-    amqp_channel:cast(Channel,
-                      #'basic.publish'{
-                        exchange = Exchange,
-                        routing_key = <<"">>},
-                      #amqp_msg{payload = Message}),
-
+handle_call({send, Message}, _From, State = #state{exchange = Exchange, broker = Broker}) ->
+    ok = gen_server:call(Broker, {publish, {Exchange, Message}}),
     {reply, ok, State};
+
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State}.
 

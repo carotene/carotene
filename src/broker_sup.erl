@@ -1,7 +1,5 @@
 -module(broker_sup).
 
--define(Broker, rabbitmq).
-
 -behaviour(supervisor).
 
 %% API
@@ -22,8 +20,6 @@ start_link() ->
 %% ===================================================================
 
 init([]) ->
-    case ?Broker of
-        rabbitmq ->
     {ok, { {one_for_one, 5, 10}, [
              {broker,
               {rabbitmq_broker, start_link, []},
@@ -31,17 +27,7 @@ init([]) ->
               infinity,
               worker,
               [rabbitmq_broker] 
-             } ]} };
-        redis ->
-    {ok, { {one_for_one, 5, 10}, [
-             {broker,
-              {redis_broker, start_link, []},
-              permanent,
-              infinity,
-              worker,
-              [redis_broker] 
-             } ]} }
-    end.
+             } ]} }.
 
 get_broker() ->
     Children = supervisor:which_children(?MODULE),

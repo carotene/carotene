@@ -1,4 +1,4 @@
--module(rabbitmq_transport).
+-module(rabbitmq_broker).
 
 -include_lib("amqp_client/include/amqp_client.hrl").
 
@@ -31,6 +31,19 @@ handle_info(shutdown, State) ->
 
 handle_call(get_channel, _From, State = #state{channel = Channel}) ->
     {reply, {ok, Channel}, State};
+handle_call({declare_exchange, {Exchange, Type}}, _From, State = #state{channel = Channel}) ->
+    amqp_channel:call(Channel, #'exchange.declare'{exchange = Exchange,
+                                                   type = Type
+                                                  }),
+    {reply, ok, State};
+
+handle_call({publish, {Exchange, Message}}, _From, State = #state{channel = Channel}) ->
+    amqp_channel:cast(Channel,
+                      #'basic.publish'{
+                        exchange = Exchange,
+                        routing_key = <<"">>},
+                      #amqp_msg{payload = Message}),
+    {reply, ok, State};
 %handle_call({send, Message}, _From, State = #state{channel = Channel, exchange = Exchange}) ->
 %    amqp_channel:cast(Channel,
 %                      #'basic.publish'{
