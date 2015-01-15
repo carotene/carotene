@@ -19,6 +19,7 @@ stop(Pid) ->
 
 init([ExchangeName, ReplyPid]) ->
     Broker = broker_sup:get_broker(),
+    % TODO: This is particular to rabbitmq
     {ok, QueueServer} = gen_server:call(Broker, start_queue),
     {ok, Queue} = gen_server:call(QueueServer, {declare_queue}),
     ok = gen_server:call(QueueServer, {queue_bind, Queue, ExchangeName}),

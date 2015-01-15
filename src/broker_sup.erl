@@ -19,18 +19,26 @@ start_link() ->
 %% Supervisor callbacks
 %% ===================================================================
 
+%init([]) ->
+%    {ok, { {one_for_one, 5, 10}, [
+%             {broker,
+%              {rabbitmq_broker, start_link, [self()]},
+%              permanent,
+%              infinity,
+%              worker,
+%              [rabbitmq_broker] 
+%             } ]} }.
 init([]) ->
     {ok, { {one_for_one, 5, 10}, [
              {broker,
-              {rabbitmq_broker, start_link, [self()]},
+              {redis_broker, start_link, [self()]},
               permanent,
               infinity,
               worker,
-              [rabbitmq_broker] 
+              [redis_broker] 
              } ]} }.
 
 get_broker() ->
     Children = supervisor:which_children(?MODULE),
     {broker, Broker, _, _} = lists:keyfind(broker, 1, Children),
     Broker.
-

@@ -1,6 +1,4 @@
--module(rabbitmq_queue).
-
--include_lib("amqp_client/include/amqp_client.hrl").
+-module(redis_queue).
 
 -behaviour(gen_server).
 -export([start_link/1, start/1, stop/1]).
@@ -19,32 +17,38 @@ start(Channel) ->
 stop(Pid) ->
     gen_server:call(Pid, stop, infinity).
 
-init([Channel]) ->
+init([Channel1]) ->
+    {ok, Channel} = eredis_sub:start_link(),
     {ok, #state{channel = Channel}}.
 
-handle_info(#'basic.consume_ok'{}, State) ->
+handle_info({subscribed, Exchange, Pid}, State) ->
+    io:format("Really subscribed ~p~n", [Exchange]),
+    eredis_sub:ack_message(Pid),
     {noreply, State};
+handle_info({message, _, Msg, Pid}, #state{reply_pid = ReplyPid} = State) ->
+    io:format("message received~p~n", [Msg]),
+    io:format("replying to~p~n", [ReplyPid]),
 
-handle_info(#'basic.cancel_ok'{}, State) ->
-    {stop, normal, State};
-
-handle_info({#'basic.deliver'{}, #amqp_msg{payload = Msg}}, #state{reply_pid = ReplyPid} = State) ->
+    eredis_sub:ack_message(Pid),
     ReplyPid ! {received_message, Msg},
     {noreply, State};
 handle_info(shutdown, State) ->
     {stop, normal, State}.
 
+handle_call({message, _, Msg, Pid}, _From, #state{reply_pid = ReplyPid} = State) ->
+    io:format("message received~n"),
+    eredis:ack_message(Pid),
+    ReplyPid ! {received_message, Msg},
+    {noreply, State};
 handle_call({declare_queue}, _From, State = #state{channel = Channel}) ->
-    #'queue.declare_ok'{queue = Queue} = amqp_channel:call(Channel, #'queue.declare'{}),
-    {reply, {ok, Queue}, State};
-handle_call({queue_bind, Queue, Exchange}, _From, State = #state{channel = Channel}) ->
-    amqp_channel:call(Channel, #'queue.bind'{queue = Queue,
-                                             exchange = Exchange
-                                            }),
+    {reply, {ok, dummy}, State};
+handle_call({queue_bind, Queue, Exchange}, _From, State = #state{channel = Channel1}) ->
+    {ok, Channel} = eredis_sub:start_link(),
+    eredis_sub:controlling_process(Channel),
+    io:format("Subscribed to ~p~n", [Exchange]),
+    eredis_sub:subscribe(Channel, [Exchange]),
     {reply, ok, State#state{ exchange = Exchange}};
-handle_call({consume, Queue, ReplyPid}, _From, State = #state{channel = Channel}) ->
-    amqp_channel:subscribe(Channel, #'basic.consume'{queue = Queue,
-                                                     no_ack = true}, self()),
+handle_call({consume, Queue, ReplyPid}, _From, State) ->
     {reply, ok, State#state{reply_pid = ReplyPid}};
 
 handle_call(stop, _From, State) ->
