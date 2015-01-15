@@ -20,7 +20,6 @@ stop(Pid) ->
     gen_server:call(Pid, stop, infinity).
 
 init([Channel]) ->
-    io:format("STARTEEEED: ~n"),
     {ok, #state{channel = Channel}}.
 
 handle_info(shutdown, State) ->

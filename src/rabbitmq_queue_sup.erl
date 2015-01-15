@@ -1,4 +1,4 @@
--module(rabbitmq_exchange_sup).
+-module(rabbitmq_queue_sup).
 
 -behaviour(supervisor).
 
@@ -21,12 +21,11 @@ start_link(Channel) ->
 
 init([Channel]) ->
     {ok, { {simple_one_for_one, 5, 10}, [
-             {rabbitmq_exchange,
-              {rabbitmq_exchange, start_link, [Channel]},
+             {rabbitmq_queue,
+              {rabbitmq_queue, start_link, [Channel]},
               permanent,
               infinity,
               worker,
-              [rabbitmq_exchange] 
+              [rabbitmq_queue] 
              } ]} }.
-
 
