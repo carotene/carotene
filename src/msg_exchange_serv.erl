@@ -18,17 +18,18 @@ start(Exchange) ->
 stop(Pid) ->
     gen_server:call(Pid, stop, infinity).
 
-init([Exchange]) ->
+init([ExchangeName]) ->
     Broker = broker_sup:get_broker(),
-    ok = gen_server:call(Broker, {declare_exchange, {Exchange, <<"fanout">>}}),
+    {ok, Exchange} = gen_server:call(Broker, start_exchange),
+    ok = gen_server:call(Exchange, {declare_exchange, {ExchangeName, <<"fanout">>}}),
 
     {ok, #state{exchange = Exchange, broker = Broker}}.
 
 handle_info(shutdown, State) ->
     {stop, normal, State}.
 
-handle_call({send, Message}, _From, State = #state{exchange = Exchange, broker = Broker}) ->
-    ok = gen_server:call(Broker, {publish, {Exchange, Message}}),
+handle_call({send, Message}, _From, State = #state{exchange = Exchange}) ->
+    ok = gen_server:call(Exchange, {publish,  Message}),
     {reply, ok, State};
 
 handle_call(stop, _From, State) ->

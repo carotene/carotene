@@ -1,9 +1,9 @@
--module(broker_sup).
+-module(rabbitmq_exchange_sup).
 
 -behaviour(supervisor).
 
 %% API
--export([start_link/0, get_broker/0]).
+-export([start_link/1]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -12,21 +12,21 @@
 %% API functions
 %% ===================================================================
 
-start_link() ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+start_link(Channel) ->
+    supervisor:start_link({local, ?MODULE}, ?MODULE, [Channel]).
 
 %% ===================================================================
 %% Supervisor callbacks
 %% ===================================================================
 
-init([]) ->
-    {ok, { {one_for_one, 5, 10}, [
-             {broker,
-              {rabbitmq_broker, start_link, [self()]},
+init([Channel]) ->
+    {ok, { {simple_one_for_one, 5, 10}, [
+             {rabbitmq_exchange,
+              {rabbitmq_exchange, start_link, [Channel]},
               permanent,
               infinity,
               worker,
-              [rabbitmq_broker] 
+              [rabbitmq_exchange] 
              } ]} }.
 
 get_broker() ->

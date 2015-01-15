@@ -45,7 +45,6 @@ process_message([{<<"joinexchange">>, Exchange}], State = #state{exchanges=Exs, 
 process_message([{<<"send">>, Message}, {<<"exchange">>, Exchange}], State = #state{exchanges=Exs}) ->
     % TODO: make robust
     {ok, [ExchangePid]} = dict:find(Exchange, Exs),
-    io:format(" Pid~p ~n", [ExchangePid]),
     gen_server:call(ExchangePid, {send, jsx:encode([{<<"message">>, Message},{<<"exchange">>, Exchange}])}),
     State;
 
