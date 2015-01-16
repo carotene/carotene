@@ -17,36 +17,25 @@ start(Channel) ->
 stop(Pid) ->
     gen_server:call(Pid, stop, infinity).
 
-init([Channel1]) ->
-    {ok, Channel} = eredis_sub:start_link(),
+init([Channel]) ->
     {ok, #state{channel = Channel}}.
 
-handle_info({subscribed, Exchange, Pid}, State) ->
-    io:format("Really subscribed ~p~n", [Exchange]),
-    eredis_sub:ack_message(Pid),
-    {noreply, State};
-handle_info({message, _, Msg, Pid}, #state{reply_pid = ReplyPid} = State) ->
+handle_info({received_message, Msg}, #state{reply_pid = ReplyPid} = State) ->
     io:format("message received~p~n", [Msg]),
     io:format("replying to~p~n", [ReplyPid]),
 
-    eredis_sub:ack_message(Pid),
     ReplyPid ! {received_message, Msg},
     {noreply, State};
 handle_info(shutdown, State) ->
     {stop, normal, State}.
 
 handle_call({message, _, Msg, Pid}, _From, #state{reply_pid = ReplyPid} = State) ->
-    io:format("message received~n"),
-    eredis:ack_message(Pid),
     ReplyPid ! {received_message, Msg},
     {noreply, State};
 handle_call({declare_queue}, _From, State = #state{channel = Channel}) ->
     {reply, {ok, dummy}, State};
-handle_call({queue_bind, Queue, Exchange}, _From, State = #state{channel = Channel1}) ->
-    {ok, Channel} = eredis_sub:start_link(),
-    eredis_sub:controlling_process(Channel),
-    io:format("Subscribed to ~p~n", [Exchange]),
-    eredis_sub:subscribe(Channel, [Exchange]),
+handle_call({queue_bind, Queue, Exchange}, _From, State = #state{channel = Channel}) ->
+    gen_server:cast(Channel, {subscribe, [Exchange], self()}),
     {reply, ok, State#state{ exchange = Exchange}};
 handle_call({consume, Queue, ReplyPid}, _From, State) ->
     {reply, ok, State#state{reply_pid = ReplyPid}};

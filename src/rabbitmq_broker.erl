@@ -49,8 +49,6 @@ handle_info({start_rabbitmq_queue_sup, Channel}, State = #state{supervisor = Sup
 handle_info(shutdown, State) ->
     {stop, normal, State}.
 
-handle_call(get_channel, _From, State = #state{channel = Channel}) ->
-    {reply, {ok, Channel}, State};
 handle_call(start_exchange, _From, State = #state{exchange_supervisor = ExchangeSup}) ->
     {ok, Exchange} = supervisor:start_child(ExchangeSup, []),
 
