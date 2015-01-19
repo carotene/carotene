@@ -12,17 +12,17 @@
 %% API functions
 %% ===================================================================
 
-start_link(Channel) ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, [Channel]).
+start_link(Client) ->
+    supervisor:start_link({local, ?MODULE}, ?MODULE, [Client]).
 
 %% ===================================================================
 %% Supervisor callbacks
 %% ===================================================================
 
-init([Channel]) ->
+init([Client]) ->
     {ok, { {simple_one_for_one, 5, 10}, [
              {redis_queue,
-              {redis_queue, start_link, [Channel]},
+              {redis_queue, start_link, [Client]},
               permanent,
               infinity,
               worker,

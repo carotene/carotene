@@ -4,23 +4,23 @@
 -export([start_link/1, start/1, stop/1]).
 -export([init/1, handle_call/3, handle_cast/2, terminate/2, handle_info/2, code_change/3]).
 
--record(state, {channel, exchange, reply_pid}).
+-record(state, {client, channel, reply_pid}).
 
-start_link(Channel) ->
+start_link(Client) ->
     Opts = [],
-    gen_server:start_link(?MODULE, [Channel], Opts).
+    gen_server:start_link(?MODULE, [Client], Opts).
 
-start(Channel) ->
+start(Client) ->
     Opts = [],
-    gen_server:start(?MODULE, [Channel], Opts).
+    gen_server:start(?MODULE, [Client], Opts).
 
 stop(Pid) ->
     gen_server:call(Pid, stop, infinity).
 
-init([Channel]) ->
-    {ok, #state{channel = Channel}}.
+init([Client]) ->
+    {ok, #state{client = Client}}.
 
-handle_info({received_message, Msg}, #state{reply_pid = ReplyPid} = State) ->
+handle_info({message, Msg}, #state{reply_pid = ReplyPid} = State) ->
     io:format("message received~p~n", [Msg]),
     io:format("replying to~p~n", [ReplyPid]),
 
@@ -32,11 +32,11 @@ handle_info(shutdown, State) ->
 handle_call({message, _, Msg, Pid}, _From, #state{reply_pid = ReplyPid} = State) ->
     ReplyPid ! {received_message, Msg},
     {noreply, State};
-handle_call({declare_queue}, _From, State = #state{channel = Channel}) ->
+handle_call({declare_queue}, _From, State = #state{client = Client}) ->
     {reply, {ok, dummy}, State};
-handle_call({queue_bind, Queue, Exchange}, _From, State = #state{channel = Channel}) ->
-    gen_server:cast(Channel, {subscribe, [Exchange], self()}),
-    {reply, ok, State#state{ exchange = Exchange}};
+handle_call({queue_bind, Queue, Channel}, _From, State = #state{client = Client}) ->
+    gen_server:cast(Client, {subscribe, [Channel], self()}),
+    {reply, ok, State#state{ channel = Channel}};
 handle_call({consume, Queue, ReplyPid}, _From, State) ->
     {reply, ok, State#state{reply_pid = ReplyPid}};
 
