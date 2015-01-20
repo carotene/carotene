@@ -9,16 +9,17 @@
 
 -record(state, {
           user_id,
-          username,
+          user_data,
           exchanges = [],
-          queues = []
+          queues = [],
+          authenticate_url
 }).
 
 init({tcp, http}, _Req, _Opts) ->
     {upgrade, protocol, cowboy_websocket}.
 
-websocket_init(_TransportName, Req, _Opts) ->
-    {ok, Req, #state{exchanges=dict:new(), queues=dict:new()}}.
+websocket_init(_TransportName, Req, [AuthenticateUrl]) ->
+    {ok, Req, #state{exchanges=dict:new(), queues=dict:new(), authenticate_url=AuthenticateUrl}}.
 
 websocket_handle({text, Data}, Req, State) ->
     Msg = jsx:decode(Data),
@@ -42,11 +43,24 @@ process_message([{<<"joinexchange">>, Exchange}], State = #state{exchanges=Exs, 
     {ok, QueuePid} = msg_queue_serv:start(Exchange, self()),
     % TODO: add only once
     State#state{exchanges = dict:append(Exchange, ExchangePid, Exs), queues = dict:append(Exchange, QueuePid, Qs)};
-process_message([{<<"send">>, Message}, {<<"exchange">>, Exchange}], State = #state{exchanges=Exs}) ->
+
+process_message([{<<"send">>, Message}, {<<"exchange">>, Exchange}], State = #state{exchanges=Exs, user_id=UserId, user_data=UserData}) ->
     % TODO: make robust
     {ok, [ExchangePid]} = dict:find(Exchange, Exs),
-    gen_server:call(ExchangePid, {send, jsx:encode([{<<"message">>, Message},{<<"exchange">>, Exchange}])}),
+    gen_server:call(ExchangePid, {send, jsx:encode([{<<"message">>, Message},
+                                                    {<<"exchange">>, Exchange}, 
+                                                    {<<"user_id">>, UserId},
+                                                    {<<"user_data">>, UserData}
+                                                   ])}),
     State;
+process_message([{<<"authenticate">>, AssumedUserId},{<<"token">>, Token}], State = #state{authenticate_url=AuthenticateUrl}) ->
+    {ok, {{_Version, 200, _ReasonPhrase}, _Headers, Body}} = httpc:request(post, {AuthenticateUrl, [], "application/x-www-form-urlencoded", "user_id="++binary_to_list(AssumedUserId)++"&token="++binary_to_list(Token)}, [], []),
+    AuthResult = jsx:decode(binary:list_to_bin(Body)),
+    {UserID, UserData} = case AuthResult of
+                             [{<<"authenticated">>, <<"true">>}, {<<"userdata">>, ResUserData}] -> {AssumedUserId, ResUserData};
+                             _ -> {undefined, undefined}
+                         end,
+    State#state{user_id = UserID, user_data = UserData};
 
 process_message(_, State) ->
     io:format("unknown message~n"),
