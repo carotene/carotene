@@ -36,14 +36,15 @@ handle_info({start_broker, Sup}, State = #state{supervisor = Sup}) ->
             {"/websocket", ws_handler, ["http://carotene_test.lo/app_dev.php/authenticate"]}
         ]}
     ]),
-    {ok, _} = cowboy:start_http(http, 1, [{port, 8080}],
+    {ok, Port} = application:get_env(carotene, http_port),
+    {ok, _} = cowboy:start_http(http, 1, [{port, Port}],
         [{env, [{dispatch, Dispatch}]}]),
-    io:format("~s~n", ["Server started at port 8080"]),
     {noreply, State};
 handle_info(shutdown, State) ->
     {noreply, State}.
 
 terminate(_Reason, _State) ->
+    inets:stop(),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->

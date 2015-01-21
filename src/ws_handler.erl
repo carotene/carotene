@@ -51,8 +51,9 @@ process_message([{<<"send">>, Message}, {<<"exchange">>, Exchange}], State = #st
                                                     {<<"exchange">>, Exchange}, 
                                                     {<<"user_id">>, UserId},
                                                     {<<"user_data">>, UserData}
-                                                   ])}),
+                                                   ]), UserId}),
     State;
+
 process_message([{<<"authenticate">>, AssumedUserId},{<<"token">>, Token}], State = #state{authenticate_url=AuthenticateUrl}) ->
     {ok, {{_Version, 200, _ReasonPhrase}, _Headers, Body}} = httpc:request(post, {AuthenticateUrl, [], "application/x-www-form-urlencoded", "user_id="++binary_to_list(AssumedUserId)++"&token="++binary_to_list(Token)}, [], []),
     AuthResult = jsx:decode(binary:list_to_bin(Body)),

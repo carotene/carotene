@@ -38,7 +38,8 @@ init([]) ->
               [redis_broker] 
              } ]} }.
 
+
 get_broker() ->
     Children = supervisor:which_children(?MODULE),
     {broker, Broker, _, _} = lists:keyfind(broker, 1, Children),
-    Broker.
+    {redis_broker, Broker}.

@@ -8,7 +8,7 @@
 -export([stop/1]).
 
 
--record(state, {exchange, broker}).
+-record(state, {exchange, broker, auth_config}).
 
 
 start(Exchange) ->
@@ -19,16 +19,16 @@ stop(Pid) ->
     gen_server:call(Pid, stop, infinity).
 
 init([ExchangeName]) ->
-    Broker = broker_sup:get_broker(),
-    {ok, Exchange} = gen_server:call(Broker, start_exchange),
-    ok = gen_server:call(Exchange, {declare_exchange, {ExchangeName, <<"fanout">>}}),
-
-    {ok, #state{exchange = Exchange, broker = Broker}}.
+    {BrokerModule, Broker} = broker_sup:get_broker(),
+    {ok, Exchange} = apply(BrokerModule, start_exchange, [Broker]),
+    ok = apply(BrokerModule, declare_exchange, [Exchange, {ExchangeName, <<"faonout">>}]),
+    {ok, AuthConfig} = application:get_env(carotene, publish_auth),
+    {ok, #state{exchange = Exchange, broker = Broker, auth_config = AuthConfig}}.
 
 handle_info(shutdown, State) ->
     {stop, normal, State}.
 
-handle_call({send, Message}, _From, State = #state{exchange = Exchange}) ->
+handle_call({send, Message, UserId}, _From, State = #state{exchange = Exchange}) ->
     ok = gen_server:call(Exchange, {publish,  Message}),
     {reply, ok, State};
 
