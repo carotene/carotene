@@ -3,7 +3,7 @@
 -include_lib("amqp_client/include/amqp_client.hrl").
 
 -behaviour(gen_server).
--export([start_link/1, start/1, stop/1]).
+-export([start_link/1, start/1, stop/1, declare_exchange/2, start_exchange/1]).
 -export([init/1, handle_call/3, handle_cast/2, terminate/2, handle_info/2, code_change/3]).
 
 -record(state, {channel, supervisor, connection, exchange_supervisor, queue_supervisor}).
@@ -18,6 +18,12 @@ start(Sup) ->
 
 stop(Pid) ->
     gen_server:call(Pid, stop, infinity).
+
+start_exchange(Pid)->
+    gen_server:call(Pid, start_exchange).
+
+declare_exchange(ExchangeServ, ExchangeSpecs)->
+    rabbitmq_exchange:declare_exchange(ExchangeServ, ExchangeSpecs).
 
 init([Sup]) ->
     {ok, Connection} =

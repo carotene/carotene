@@ -19,27 +19,26 @@ start_link() ->
 %% Supervisor callbacks
 %% ===================================================================
 
-%init([]) ->
-%    {ok, { {one_for_one, 5, 10}, [
-%             {broker,
-%              {rabbitmq_broker, start_link, [self()]},
-%              permanent,
-%              infinity,
-%              worker,
-%              [rabbitmq_broker] 
-%             } ]} }.
 init([]) ->
+    BrokerModule = read_broker_config(),
+
     {ok, { {one_for_one, 5, 10}, [
              {broker,
-              {redis_broker, start_link, [self()]},
+              {BrokerModule, start_link, [self()]},
               permanent,
               infinity,
               worker,
-              [redis_broker] 
+              [BrokerModule] 
              } ]} }.
 
+read_broker_config() ->
+    {ok, Broker} = application:get_env(carotene, broker),
+    case Broker of
+        rabbitmq -> rabbitmq_broker;
+        redis -> redis_broker
+    end.
 
 get_broker() ->
     Children = supervisor:which_children(?MODULE),
     {broker, Broker, _, _} = lists:keyfind(broker, 1, Children),
-    {redis_broker, Broker}.
+    {read_broker_config(), Broker}.

@@ -21,9 +21,6 @@ init([Client]) ->
     {ok, #state{client = Client}}.
 
 handle_info({message, Msg}, #state{reply_pid = ReplyPid} = State) ->
-    io:format("message received~p~n", [Msg]),
-    io:format("replying to~p~n", [ReplyPid]),
-
     ReplyPid ! {received_message, Msg},
     {noreply, State};
 handle_info(shutdown, State) ->

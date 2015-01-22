@@ -20,7 +20,7 @@ stop(Pid) ->
 init([ExchangeName]) ->
     {BrokerModule, Broker} = broker_sup:get_broker(),
     {ok, Exchange} = apply(BrokerModule, start_exchange, [Broker]),
-    ok = apply(BrokerModule, declare_exchange, [Exchange, {ExchangeName, <<"faonout">>}]),
+    ok = apply(BrokerModule, declare_exchange, [Exchange, {ExchangeName, <<"fanout">>}]),
     {ok, AuthConfig} = application:get_env(carotene, publish_auth),
     {ok, #state{exchange = Exchange, exchange_name = ExchangeName, broker = Broker, auth_config = AuthConfig, already_auth = false}}.
 
@@ -84,6 +84,3 @@ ask_authentication(UserId, AuthConfig, ExchangeName) ->
                     bad_server_response_on_authorization
             end
     end.
-
-
-

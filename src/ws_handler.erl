@@ -38,9 +38,9 @@ websocket_info(_Info, Req, State) ->
 websocket_terminate(_Reason, _Req, _State) ->
     ok.
 
-process_message([{<<"joinexchange">>, Exchange}], State = #state{exchanges=Exs, queues=Qs}) ->
+process_message([{<<"joinexchange">>, Exchange}], State = #state{exchanges=Exs, queues=Qs, user_id=UserId}) ->
     {ok, ExchangePid} = msg_exchange_serv:start(Exchange),
-    {ok, QueuePid} = msg_queue_serv:start(Exchange, self()),
+    {ok, QueuePid} = msg_queue_serv:start(Exchange, UserId, self()),
     % TODO: add only once
     State#state{exchanges = dict:append(Exchange, ExchangePid, Exs), queues = dict:append(Exchange, QueuePid, Qs)};
 

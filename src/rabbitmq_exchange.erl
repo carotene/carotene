@@ -3,7 +3,7 @@
 -include_lib("amqp_client/include/amqp_client.hrl").
 
 -behaviour(gen_server).
--export([start_link/1, start/1, stop/1]).
+-export([start_link/1, start/1, stop/1, declare_exchange/2]).
 -export([init/1, handle_call/3, handle_cast/2, terminate/2, handle_info/2, code_change/3]).
 
 -record(state, {channel, exchange}).
@@ -18,6 +18,9 @@ start(Channel) ->
 
 stop(Pid) ->
     gen_server:call(Pid, stop, infinity).
+
+declare_exchange(ExchangeServ, ExchangeSpecs)->
+    gen_server:call(ExchangeServ, {declare_exchange, ExchangeSpecs}).
 
 init([Channel]) ->
     {ok, #state{channel = Channel}}.
