@@ -21,10 +21,25 @@ start_link() ->
 
 init([]) ->
     {ok, { {one_for_one, 5, 10}, [
-             {http_initializer,
-              {http_initializer, start_link, [self()]},
-              permanent,
-              infinity,
-              worker,
-              [http_initializer] 
-             } ]} }.
+                                  {http_initializer,
+                                   {http_initializer, start_link, [self()]},
+                                   permanent,
+                                   infinity,
+                                   worker,
+                                   [http_initializer] 
+                                  },
+                                  {msg_exchange_sup,
+                                   {msg_exchange_sup, start_link, []},
+                                   permanent,
+                                   infinity,
+                                   supervisor,
+                                   [msg_exchange_sup] 
+                                  },
+                                  {msg_queue_sup,
+                                   {msg_queue_sup, start_link, []},
+                                   permanent,
+                                   infinity,
+                                   supervisor,
+                                   [msg_queue_sup] 
+                                  }
+                                 ]} }.

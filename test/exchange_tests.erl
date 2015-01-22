@@ -10,7 +10,7 @@ start_test_() ->
 publish_anonymous_authlevel_test_() ->
     {"Can't publish if I am anonymous and level is auth",
      {setup, 
-        fun start_with_config_level_auth/0,
+        fun start_as_anonymous_with_config_level_auth/0,
         fun stop/1,
         fun(ExchangeServ) ->
                 [try_send_and_needs_auth(ExchangeServ)]
@@ -20,7 +20,7 @@ publish_anonymous_authlevel_test_() ->
 publish_anonymous_asklevel_test_() ->
     {"Can't publish if I am anonymous asking is false",
      {setup, 
-        fun start_with_config_level_ask/0,
+        fun start_as_identified_with_config_level_ask/0,
         fun stop/1,
         fun(ExchangeServ) ->
                 [try_send_and_auth_wrong(ExchangeServ)]
@@ -39,7 +39,7 @@ set_config_level_ask() ->
                                                  {level, ask}
                                                 ]).
 
-start() ->
+start(UserId) ->
     meck:new(broker_sup),
     meck:expect(broker_sup, get_broker, fun() ->
                                                 {broker_module_mock, broker_mock} end),
@@ -48,7 +48,7 @@ start() ->
                                                             {ok, some_exchange} end),
     meck:expect(broker_module_mock, declare_exchange, fun(_Exchange, _ExchangeSpecs) ->
                                                               ok end),
-    Res = msg_exchange_serv:start(<<"room1">>),
+    Res = msg_exchange_serv:start(<<"room1">>, UserId),
     
     meck:unload(broker_sup),
     meck:unload(broker_module_mock),
@@ -56,13 +56,13 @@ start() ->
     Pid.
 
 %% Setups/Teardowns
-start_with_config_level_auth() ->
+start_as_anonymous_with_config_level_auth() ->
     set_config_level_auth(),
-    start().
+    start(undefined).
 
-start_with_config_level_ask() ->
+start_as_identified_with_config_level_ask() ->
     set_config_level_ask(),
-    start().
+    start(<<"user1">>).
 
 stop(ExchangeServ) ->
     msg_exchange_serv:stop(ExchangeServ).
@@ -78,20 +78,20 @@ start_and_test_running() ->
     meck:expect(broker_module_mock, declare_exchange, fun(_Exchange, _ExchangeSpecs) ->
                                                               ok end),
     application:set_env(carotene, publish_auth, nothing),
-    Res = msg_exchange_serv:start(<<"room1">>),
+    Res = msg_exchange_serv:start(<<"room1">>, <<"user1">>),
     meck:unload(broker_sup),
     meck:unload(broker_module_mock),
     ?_assertMatch({ok, _}, Res).
 
 try_send_and_needs_auth(ExchangeServ) ->
-    Res = gen_server:call(ExchangeServ, {send, <<"hi">>, undefined}),
+    Res = gen_server:call(ExchangeServ, {send, <<"hi">>}),
     ?_assertEqual({error, needs_authentication}, Res).
 
 try_send_and_auth_wrong(ExchangeServ) ->
     meck:new(httpc),
     meck:expect(httpc, request, fun(post, _, _, _) ->
                                         {ok, {{v, 200, rp}, h, binary:bin_to_list(jsx:encode([{<<"authorized">>, <<"false">>}]))}} end),
-    Res = gen_server:call(ExchangeServ, {send, <<"hi">>, <<"user1">>}),
+    Res = gen_server:call(ExchangeServ, {send, <<"hi">>}),
     meck:unload(httpc),
     ?_assertEqual({error, no_authorization}, Res).
     

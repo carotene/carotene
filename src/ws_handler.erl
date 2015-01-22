@@ -38,20 +38,20 @@ websocket_info(_Info, Req, State) ->
 websocket_terminate(_Reason, _Req, _State) ->
     ok.
 
-process_message([{<<"joinexchange">>, Exchange}], State = #state{exchanges=Exs, queues=Qs, user_id=UserId}) ->
-    {ok, ExchangePid} = msg_exchange_serv:start(Exchange),
-    {ok, QueuePid} = msg_queue_serv:start(Exchange, UserId, self()),
+process_message([{<<"joinexchange">>, ExchangeName}], State = #state{exchanges=Exs, queues=Qs, user_id=UserId}) ->
+    {ok, ExchangePid} = supervisor:start_child(msg_exchange_sup, [ExchangeName, UserId]),
+    {ok, QueuePid} = supervisor:start_child(msg_queue_sup, [ExchangeName, UserId, self()]),
     % TODO: add only once
-    State#state{exchanges = dict:append(Exchange, ExchangePid, Exs), queues = dict:append(Exchange, QueuePid, Qs)};
+    State#state{exchanges = dict:append(ExchangeName, ExchangePid, Exs), queues = dict:append(ExchangeName, QueuePid, Qs)};
 
-process_message([{<<"send">>, Message}, {<<"exchange">>, Exchange}], State = #state{exchanges=Exs, user_id=UserId, user_data=UserData}) ->
+process_message([{<<"send">>, Message}, {<<"exchange">>, ExchangeName}], State = #state{exchanges=Exs, user_id=UserId, user_data=UserData}) ->
     % TODO: make robust
-    {ok, [ExchangePid]} = dict:find(Exchange, Exs),
+    {ok, [ExchangePid]} = dict:find(ExchangeName, Exs),
     gen_server:call(ExchangePid, {send, jsx:encode([{<<"message">>, Message},
-                                                    {<<"exchange">>, Exchange}, 
+                                                    {<<"exchange">>, ExchangeName}, 
                                                     {<<"user_id">>, UserId},
                                                     {<<"user_data">>, UserData}
-                                                   ]), UserId}),
+                                                   ])}),
     State;
 
 process_message([{<<"authenticate">>, AssumedUserId},{<<"token">>, Token}], State = #state{authenticate_url=AuthenticateUrl}) ->

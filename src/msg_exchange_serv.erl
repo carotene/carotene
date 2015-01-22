@@ -2,32 +2,36 @@
 
 -behaviour(gen_server).
 
--export([start/1]).
+-export([start/2, start_link/2]).
 -export([stop/1]).
 -export([init/1, terminate/2, code_change/3, handle_call/3,
          handle_cast/2, handle_info/2]).
 
--record(state, {exchange, exchange_name, broker, auth_config, already_auth}).
+-record(state, {exchange, exchange_name, broker, auth_config, already_auth, user_id}).
 
 
-start(Exchange) ->
+start_link(Exchange, UserId) ->
     Opts = [],
-    gen_server:start(?MODULE, [Exchange], Opts).
+    gen_server:start_link(?MODULE, [Exchange, UserId], Opts).
+
+start(Exchange, UserId) ->
+    Opts = [],
+    gen_server:start(?MODULE, [Exchange, UserId], Opts).
 
 stop(Pid) ->
     gen_server:call(Pid, stop, infinity).
 
-init([ExchangeName]) ->
+init([ExchangeName, UserId]) ->
     {BrokerModule, Broker} = broker_sup:get_broker(),
     {ok, Exchange} = apply(BrokerModule, start_exchange, [Broker]),
     ok = apply(BrokerModule, declare_exchange, [Exchange, {ExchangeName, <<"fanout">>}]),
     {ok, AuthConfig} = application:get_env(carotene, publish_auth),
-    {ok, #state{exchange = Exchange, exchange_name = ExchangeName, broker = Broker, auth_config = AuthConfig, already_auth = false}}.
+    {ok, #state{user_id = UserId, exchange = Exchange, exchange_name = ExchangeName, broker = Broker, auth_config = AuthConfig, already_auth = false}}.
 
 handle_info(shutdown, State) ->
     {stop, normal, State}.
 
-handle_call({send, Message, UserId}, _From, State = #state{exchange = Exchange, exchange_name = ExchangeName, auth_config = AuthConfig}) ->
+handle_call({send, Message}, _From, State = #state{exchange = Exchange, exchange_name = ExchangeName, auth_config = AuthConfig, user_id = UserId}) ->
     case already_auth of
         true -> ok = gen_server:call(Exchange, {publish,  Message}),
                 {reply, ok, State};
@@ -80,7 +84,7 @@ ask_authentication(UserId, AuthConfig, ExchangeName) ->
             case jsx:decode(binary:list_to_bin(Body)) of
                 [{<<"authorized">>, <<"true">>}] -> true;
                 [{<<"authorized">>, <<"false">>}] -> no_authorization;
-                Tell -> 
+                _ -> 
                     bad_server_response_on_authorization
             end
     end.

@@ -4,11 +4,15 @@
 
 -export([init/1, terminate/2, code_change/3, handle_call/3,
          handle_cast/2, handle_info/2]).
--export([start/3]).
+-export([start/3, start_link/3]).
 -export([stop/1]).
 
 
 -record(state, {queue_server, reply_pid, auth_config, already_auth}).
+
+start_link(ExchangeName, UserId, ReplyPid) ->
+    Opts = [],
+    gen_server:start_link(?MODULE, [ExchangeName, UserId, ReplyPid], Opts).
 
 start(ExchangeName, UserId, ReplyPid) ->
     Opts = [],

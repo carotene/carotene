@@ -26,15 +26,15 @@ handle_info({message, Msg}, #state{reply_pid = ReplyPid} = State) ->
 handle_info(shutdown, State) ->
     {stop, normal, State}.
 
-handle_call({message, _, Msg, Pid}, _From, #state{reply_pid = ReplyPid} = State) ->
+handle_call({message, _, Msg, _Pid}, _From, #state{reply_pid = ReplyPid} = State) ->
     ReplyPid ! {received_message, Msg},
     {noreply, State};
-handle_call({declare_queue}, _From, State = #state{client = Client}) ->
+handle_call({declare_queue}, _From, State) ->
     {reply, {ok, dummy}, State};
-handle_call({queue_bind, Queue, Channel}, _From, State = #state{client = Client}) ->
+handle_call({queue_bind, _Queue, Channel}, _From, State = #state{client = Client}) ->
     gen_server:cast(Client, {subscribe, [Channel], self()}),
     {reply, ok, State#state{ channel = Channel}};
-handle_call({consume, Queue, ReplyPid}, _From, State) ->
+handle_call({consume, _Queue, ReplyPid}, _From, State) ->
     {reply, ok, State#state{reply_pid = ReplyPid}};
 
 handle_call(stop, _From, State) ->
