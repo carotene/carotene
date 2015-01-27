@@ -30,7 +30,10 @@ handle_info(shutdown, State) ->
 
 handle_call({declare_exchange, {Exchange, Type}}, _From, State = #state{channel = Channel}) ->
     amqp_channel:call(Channel, #'exchange.declare'{exchange = Exchange,
-                                                   type = Type
+                                                   type = Type,
+                                                   durable = true,
+                                                   auto_delete = false,
+                                                   internal = false
                                                   }),
     {reply, ok, State#state{exchange = Exchange}};
 

@@ -7,8 +7,9 @@
 -export([start/3, start_link/3]).
 -export([stop/1]).
 
+-include_lib("carotene.hrl").
 
--record(state, {queue_server, reply_pid, auth_config, already_auth}).
+-record(state, {exchange_name, reply_pid, auth_config, already_auth, user_id}).
 
 start_link(ExchangeName, UserId, ReplyPid) ->
     Opts = [],
@@ -26,7 +27,7 @@ init([ExchangeName, UserId, ReplyPid]) ->
     % TODO: things can go wrong here with authorization, lets advance first
     ok = maybe_consume(UserId, AuthConfig, ExchangeName),
 
-    {ok, #state{reply_pid = ReplyPid}}.
+    {ok, #state{reply_pid = ReplyPid, exchange_name = ExchangeName, user_id = UserId}}.
 
 handle_info({received_message, Msg}, State = #state{reply_pid = ReplyPid}) ->
     ReplyPid ! {received_message, Msg},
@@ -34,6 +35,12 @@ handle_info({received_message, Msg}, State = #state{reply_pid = ReplyPid}) ->
 
 handle_info(shutdown, State) ->
     {stop, normal, State}.
+
+handle_call({presence, ExchangeName}, _From, State = #state{user_id = UserId, exchange_name = MyExchangeName}) ->
+    Reply = if ExchangeName =:= MyExchangeName -> UserId;
+               true -> false
+            end,
+    {reply, {ok, Reply}, State};
 
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State}.

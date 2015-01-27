@@ -11,15 +11,14 @@
           user_id,
           user_data,
           exchanges = [],
-          queues = [],
-          authenticate_url
+          queues = []
 }).
 
 init({tcp, http}, _Req, _Opts) ->
     {upgrade, protocol, cowboy_websocket}.
 
-websocket_init(_TransportName, Req, [AuthenticateUrl]) ->
-    {ok, Req, #state{exchanges=dict:new(), queues=dict:new(), authenticate_url=AuthenticateUrl}}.
+websocket_init(_TransportName, Req, []) ->
+    {ok, Req, #state{exchanges=dict:new(), queues=dict:new()}}.
 
 websocket_handle({text, Data}, Req, State) ->
     Msg = jsx:decode(Data),
@@ -39,6 +38,7 @@ websocket_terminate(_Reason, _Req, _State) ->
     ok.
 
 process_message([{<<"joinexchange">>, ExchangeName}], State = #state{exchanges=Exs, queues=Qs, user_id=UserId}) ->
+    io:format("User ~p joins exchange ~p~n", [UserId, ExchangeName]),
     {ok, ExchangePid} = supervisor:start_child(msg_exchange_sup, [ExchangeName, UserId]),
     {ok, QueuePid} = supervisor:start_child(msg_queue_sup, [ExchangeName, UserId, self()]),
     % TODO: add only once
@@ -54,8 +54,11 @@ process_message([{<<"send">>, Message}, {<<"exchange">>, ExchangeName}], State =
                                                    ])}),
     State;
 
-process_message([{<<"authenticate">>, AssumedUserId},{<<"token">>, Token}], State = #state{authenticate_url=AuthenticateUrl}) ->
+process_message([{<<"authenticate">>, AssumedUserId},{<<"token">>, Token}], State ) ->
+    {ok, AuthenticateUrl} = application:get_env(carotene, authenticate_url),
+    io:format("User id ~p, Token ~p~n", [AssumedUserId, Token]),
     {ok, {{_Version, 200, _ReasonPhrase}, _Headers, Body}} = httpc:request(post, {AuthenticateUrl, [], "application/x-www-form-urlencoded", "user_id="++binary_to_list(AssumedUserId)++"&token="++binary_to_list(Token)}, [], []),
+    io:format("Authenticate response: ~p~n", [Body]),
     AuthResult = jsx:decode(binary:list_to_bin(Body)),
     {UserID, UserData} = case AuthResult of
                              [{<<"authenticated">>, <<"true">>}, {<<"userdata">>, ResUserData}] -> {AssumedUserId, ResUserData};

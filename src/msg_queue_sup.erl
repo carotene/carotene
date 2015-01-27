@@ -30,5 +30,12 @@ init([]) ->
              } ]} }.
 
 presence(ExchangeName) ->
-    Children = supervisor:which_children(?MODULE).
-
+    Children = supervisor:which_children(?MODULE),
+    % FIXME: this is very wrong, very slow and broken, but is a first version
+    MaybeUsers = lists:map(fun({_, ChildPid, _, _}) ->
+                      {ok, MaybeUser} = gen_server:call(ChildPid, {presence, ExchangeName}),
+                      MaybeUser
+              end, Children),
+    lists:usort(lists:filter(fun(MaybeUserId) ->
+                         false /= MaybeUserId
+                 end, MaybeUsers)).

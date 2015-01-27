@@ -33,7 +33,7 @@ handle_info({start_broker, Sup}, State = #state{supervisor = Sup}) ->
 
     Dispatch = cowboy_router:compile([
         {'_', [
-            {"/websocket", ws_handler, ["http://carotene_test.lo/app_dev.php/authenticate"]}
+            {"/websocket", ws_handler, []}
         ]}
     ]),
     {ok, Port} = application:get_env(carotene, http_port),
