@@ -2,7 +2,7 @@
 
 -behaviour(gen_server).
 
--export([start/2, start_link/2]).
+-export([start/3, start_link/3]).
 -export([stop/1]).
 -export([init/1, terminate/2, code_change/3, handle_call/3,
          handle_cast/2, handle_info/2]).
@@ -10,26 +10,30 @@
 -record(state, {exchange, exchange_name, broker, auth_config, already_auth, user_id}).
 
 
-start_link(Exchange, UserId) ->
+start_link(Exchange, UserId, From) ->
     Opts = [],
-    gen_server:start_link(?MODULE, [Exchange, UserId], Opts).
+    gen_server:start_link(?MODULE, [Exchange, UserId, From], Opts).
 
-start(Exchange, UserId) ->
+start(Exchange, UserId, From) ->
     Opts = [],
-    gen_server:start(?MODULE, [Exchange, UserId], Opts).
+    gen_server:start(?MODULE, [Exchange, UserId, From], Opts).
 
 stop(Pid) ->
     gen_server:call(Pid, stop, infinity).
 
-init([ExchangeName, UserId]) ->
+init([ExchangeName, UserId, From]) ->
+    erlang:monitor(process, From),
     {BrokerModule, Broker} = broker_sup:get_broker(),
     {ok, Exchange} = apply(BrokerModule, start_exchange, [Broker]),
     ok = apply(BrokerModule, declare_exchange, [Exchange, {ExchangeName, <<"fanout">>}]),
+    gen_server:cast(presence_serv, {join_exchange, UserId, ExchangeName, self()}),
     {ok, AuthConfig} = application:get_env(carotene, publish_auth),
     {ok, #state{user_id = UserId, exchange = Exchange, exchange_name = ExchangeName, broker = Broker, auth_config = AuthConfig, already_auth = false}}.
 
+handle_info({'DOWN', _Ref, process, _Pid, _}, State) ->
+    {stop, shutdown, State};
 handle_info(shutdown, State) ->
-    {stop, normal, State}.
+    {stop, shutdown, State}.
 
 handle_call({send, Message}, _From, State = #state{exchange = Exchange, exchange_name = ExchangeName, auth_config = AuthConfig, user_id = UserId}) ->
     case already_auth of
@@ -44,13 +48,15 @@ handle_call({send, Message}, _From, State = #state{exchange = Exchange, exchange
             end
     end;
 
-handle_call(stop, _From, State) ->
+handle_call(stop, _From, State=#state{exchange_name=ExchangeName, user_id=UserId}) ->
+    gen_server:cast(presence_serv, {leave_exchange, UserId, ExchangeName, self()}),
     {stop, normal, ok, State}.
 
 handle_cast(_Message, State) ->
     {noreply, State}.
 
-terminate(_Reason, _State) ->
+terminate(_Reason, #state{exchange_name=ExchangeName, user_id=UserId}) ->
+    gen_server:cast(presence_serv, {leave_exchange, UserId, ExchangeName, self()}),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->

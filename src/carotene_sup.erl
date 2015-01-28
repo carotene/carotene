@@ -41,5 +41,12 @@ init([]) ->
                                    infinity,
                                    supervisor,
                                    [msg_queue_sup] 
+                                  },
+                                  {presence_serv,
+                                   {presence_serv, start_link, []},
+                                   permanent,
+                                   infinity,
+                                   supervisor,
+                                   [presence_serv] 
                                   }
                                  ]} }.

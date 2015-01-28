@@ -23,7 +23,7 @@ init([]) ->
     {ok, { {simple_one_for_one, 5, 10}, [
              {broker,
               {msg_exchange_serv, start_link, []},
-              permanent,
+              temporary,
               infinity,
               worker,
               [mgs_exchange_serv] 

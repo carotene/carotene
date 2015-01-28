@@ -33,6 +33,7 @@ handle_info({start_broker, Sup}, State = #state{supervisor = Sup}) ->
 
     Dispatch = cowboy_router:compile([
         {'_', [
+%            {"/api/exchanges/[:exchange_name]", api_exchanges_handler, []},
             {"/websocket", ws_handler, []}
         ]}
     ]),

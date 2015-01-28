@@ -1,11 +1,8 @@
 -module(ws_handler).
--behaviour(cowboy_websocket_handler).
 
--export([init/3]).
--export([websocket_init/3]).
+-export([init/2]).
 -export([websocket_handle/3]).
 -export([websocket_info/3]).
--export([websocket_terminate/3]).
 
 -record(state, {
           user_id,
@@ -14,11 +11,8 @@
           queues = []
 }).
 
-init({tcp, http}, _Req, _Opts) ->
-    {upgrade, protocol, cowboy_websocket}.
-
-websocket_init(_TransportName, Req, []) ->
-    {ok, Req, #state{exchanges=dict:new(), queues=dict:new()}}.
+init(Req, _Opts) ->
+    {cowboy_websocket, Req, #state{exchanges=dict:new(), queues=dict:new()}}.
 
 websocket_handle({text, Data}, Req, State) ->
     Msg = jsx:decode(Data),
@@ -34,12 +28,9 @@ websocket_info({timeout, _Ref, Msg}, Req, State) ->
 websocket_info(_Info, Req, State) ->
     {ok, Req, State}.
 
-websocket_terminate(_Reason, _Req, _State) ->
-    ok.
-
 process_message([{<<"joinexchange">>, ExchangeName}], State = #state{exchanges=Exs, queues=Qs, user_id=UserId}) ->
     io:format("User ~p joins exchange ~p~n", [UserId, ExchangeName]),
-    {ok, ExchangePid} = supervisor:start_child(msg_exchange_sup, [ExchangeName, UserId]),
+    {ok, ExchangePid} = supervisor:start_child(msg_exchange_sup, [ExchangeName, UserId, self()]),
     {ok, QueuePid} = supervisor:start_child(msg_queue_sup, [ExchangeName, UserId, self()]),
     % TODO: add only once
     State#state{exchanges = dict:append(ExchangeName, ExchangePid, Exs), queues = dict:append(ExchangeName, QueuePid, Qs)};
