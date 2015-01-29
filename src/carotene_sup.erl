@@ -48,5 +48,12 @@ init([]) ->
                                    infinity,
                                    supervisor,
                                    [presence_serv] 
+                                  },
+                                  {admin_serv,
+                                   {admin_serv, start_link, []},
+                                   permanent,
+                                   infinity,
+                                   worker,
+                                   [admin_serv] 
                                   }
                                  ]} }.
