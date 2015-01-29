@@ -21,6 +21,9 @@ websocket_handle({text, Data}, Req, State) ->
 websocket_handle(_Data, Req, State) ->
     {ok, Req, State}.
 
+websocket_info({presence_response, Msg}, Req, State) ->
+    io:format("presence response ~p ~n", [Msg]),
+    {reply, {text, Msg}, Req, State};
 websocket_info({received_message, Msg}, Req, State) ->
     {reply, {text, Msg}, Req, State};
 websocket_info({timeout, _Ref, Msg}, Req, State) ->
@@ -29,7 +32,6 @@ websocket_info(_Info, Req, State) ->
     {ok, Req, State}.
 
 process_message([{<<"joinexchange">>, ExchangeName}], State = #state{exchanges=Exs, queues=Qs, user_id=UserId}) ->
-    io:format("User ~p joins exchange ~p~n", [UserId, ExchangeName]),
     {ok, ExchangePid} = supervisor:start_child(msg_exchange_sup, [ExchangeName, UserId, self()]),
     {ok, QueuePid} = supervisor:start_child(msg_queue_sup, [ExchangeName, UserId, self()]),
     % TODO: add only once
@@ -43,6 +45,18 @@ process_message([{<<"send">>, Message}, {<<"exchange">>, ExchangeName}], State =
                                                     {<<"user_id">>, UserId},
                                                     {<<"user_data">>, UserData}
                                                    ])}),
+    State;
+
+process_message([{<<"presence">>, ExchangeName}], State = #state{exchanges=Exs}) ->
+    case dict:find(ExchangeName, Exs) of
+        error -> ok;
+        {ok, _} ->
+            {UsersPub, UsersSub} = presence_serv:presence(ExchangeName),
+            self() ! {presence_response, jsx:encode([{<<"publishers">>, UsersPub},
+                                                     {<<"subscribers">>, UsersSub},
+                                                     {<<"exchange">>, ExchangeName}
+                                                    ])}
+    end,
     State;
 
 process_message([{<<"authenticate">>, AssumedUserId},{<<"token">>, Token}], State ) ->
