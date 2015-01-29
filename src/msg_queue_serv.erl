@@ -27,6 +27,7 @@ init([ExchangeName, UserId, ReplyPid]) ->
     % TODO: things can go wrong here with authorization, lets advance first
     ok = maybe_consume(UserId, AuthConfig, ExchangeName),
 
+    gen_server:cast(presence_serv, {subscribe_exchange, UserId, ExchangeName, self()}),
     {ok, #state{reply_pid = ReplyPid, exchange_name = ExchangeName, user_id = UserId}}.
 
 handle_info({received_message, Msg}, State = #state{reply_pid = ReplyPid}) ->
@@ -36,19 +37,14 @@ handle_info({received_message, Msg}, State = #state{reply_pid = ReplyPid}) ->
 handle_info(shutdown, State) ->
     {stop, normal, State}.
 
-handle_call({presence, ExchangeName}, _From, State = #state{user_id = UserId, exchange_name = MyExchangeName}) ->
-    Reply = if ExchangeName =:= MyExchangeName -> UserId;
-               true -> false
-            end,
-    {reply, {ok, Reply}, State};
-
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State}.
 
 handle_cast(_Message, State) ->
     {noreply, State}.
 
-terminate(_Reason, _State) ->
+terminate(_Reason, #state{exchange_name=ExchangeName, user_id=UserId}) ->
+    gen_server:cast(presence_serv, {unsubscribe_exchange, UserId, ExchangeName, self()}),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->
