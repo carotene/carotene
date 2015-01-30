@@ -26,8 +26,8 @@ handle_info({message, Msg}, #state{reply_pid = ReplyPid} = State) ->
 handle_info(shutdown, State) ->
     {stop, normal, State}.
 
-handle_call({message, _, Msg, _Pid}, _From, #state{reply_pid = ReplyPid} = State) ->
-    ReplyPid ! {received_message, Msg},
+handle_call({message, _, Msg, _Pid}, _From, #state{channel = Channel, reply_pid = ReplyPid} = State) ->
+    ReplyPid ! {received_message, Msg, exchange, Channel},
     {noreply, State};
 handle_call({declare_queue}, _From, State) ->
     {reply, {ok, dummy}, State};

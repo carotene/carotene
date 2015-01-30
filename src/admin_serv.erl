@@ -31,8 +31,7 @@ handle_call({create_exchange, {exchange_name, ExchangeName}, {subscribe, SaneSub
     NewQs = case SaneSubscribe of
                 true -> 
                     subscribe(ExchangeName),
-                    %TODO: Not what we need, let's move forward
-                    Qs;
+                    dict:store(ExchangeName, Url, Qs);
                 false -> Qs
             end,
 
@@ -59,7 +58,13 @@ handle_call(_Request, _From, State) ->
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
-handle_info({received_message, Msg}, State) ->
+handle_info({received_message, Msg, exchange, ExchangeName}, State = #state{queues = Qs}) ->
+    % TODO robust
+    case dict:find(ExchangeName, Qs) of
+        error -> error;
+        {ok, Url} -> httpc:request(post, {Url, [], "application/x-www-form-urlencoded", "nmessage="++binary_to_list(Msg)++"&exchange="++binary_to_list(ExchangeName)}, [], [])
+    end,
+
     {noreply, State};
 
 handle_info(stop, State) ->

@@ -24,7 +24,7 @@ websocket_handle(_Data, Req, State) ->
 websocket_info({presence_response, Msg}, Req, State) ->
     io:format("presence response ~p ~n", [Msg]),
     {reply, {text, Msg}, Req, State};
-websocket_info({received_message, Msg}, Req, State) ->
+websocket_info({received_message, Msg, exchange, _ExchangeName}, Req, State) ->
     {reply, {text, Msg}, Req, State};
 websocket_info({timeout, _Ref, Msg}, Req, State) ->
     {reply, {text, Msg}, Req, State};

@@ -30,8 +30,8 @@ init([ExchangeName, UserId, ReplyPid]) ->
     gen_server:cast(presence_serv, {subscribe_exchange, UserId, ExchangeName, self()}),
     {ok, #state{reply_pid = ReplyPid, exchange_name = ExchangeName, user_id = UserId}}.
 
-handle_info({received_message, Msg}, State = #state{reply_pid = ReplyPid}) ->
-    ReplyPid ! {received_message, Msg},
+handle_info({received_message, Msg, exchange, Exchange}, State = #state{reply_pid = ReplyPid}) ->
+    ReplyPid ! {received_message, Msg, exchange, Exchange},
     {noreply, State};
 
 handle_info(shutdown, State) ->

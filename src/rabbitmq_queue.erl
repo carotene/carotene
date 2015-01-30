@@ -28,8 +28,8 @@ handle_info(#'basic.consume_ok'{}, State) ->
 handle_info(#'basic.cancel_ok'{}, State) ->
     {stop, normal, State};
 
-handle_info({#'basic.deliver'{}, #amqp_msg{payload = Msg}}, #state{reply_pid = ReplyPid} = State) ->
-    ReplyPid ! {received_message, Msg},
+handle_info({#'basic.deliver'{}, #amqp_msg{payload = Msg}}, #state{exchange = Exchange, reply_pid = ReplyPid} = State) ->
+    ReplyPid ! {received_message, Msg, exchange, Exchange},
     {noreply, State};
 handle_info(shutdown, State) ->
     {stop, normal, State}.
