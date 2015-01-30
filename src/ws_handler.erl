@@ -34,8 +34,16 @@ websocket_info(_Info, Req, State) ->
 process_message([{<<"joinexchange">>, ExchangeName}], State = #state{exchanges=Exs, queues=Qs, user_id=UserId}) ->
     {ok, ExchangePid} = supervisor:start_child(msg_exchange_sup, [ExchangeName, UserId, self()]),
     {ok, QueuePid} = supervisor:start_child(msg_queue_sup, [ExchangeName, UserId, self()]),
-    % TODO: add only once
-    State#state{exchanges = dict:store(ExchangeName, ExchangePid, Exs), queues = dict:store(ExchangeName, QueuePid, Qs)};
+    NewExs = case dict:find(ExchangeName, Exs) of
+        error -> dict:store(ExchangeName, ExchangePid, Exs);
+        {ok, _} -> Exs
+    end,
+    NewQs = case dict:find(ExchangeName, Qs) of
+        error -> dict:store(ExchangeName, QueuePid, Qs);
+        {ok, _} -> Qs
+    end,
+
+    State#state{exchanges = NewExs, queues = NewQs};
 
 process_message([{<<"send">>, Message}, {<<"exchange">>, ExchangeName}], State = #state{exchanges=Exs, user_id=UserId, user_data=UserData}) ->
     % TODO: make robust

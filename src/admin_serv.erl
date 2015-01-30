@@ -39,8 +39,10 @@ handle_call({create_exchange, {exchange_name, ExchangeName}, {subscribe, SaneSub
                  true -> {BrokerModule, Broker} = broker_sup:get_broker(),
                          {ok, Exchange} = apply(BrokerModule, start_exchange, [Broker]),
                          ok = apply(BrokerModule, declare_exchange, [Exchange, {ExchangeName, <<"fanout">>}]),
-                         %TODO: add only once, check if already added
-                         dict:store(ExchangeName, Exchange, Exs);
+                         case dict:find(ExchangeName, Exs) of
+                             error -> dict:store(ExchangeName, Exchange, Exs);
+                             {ok, _} -> Exs
+                         end;
                  false -> Exs
              end,
 
