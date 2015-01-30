@@ -24,7 +24,7 @@ stop(Pid) ->
 
 init([ExchangeName, UserId, ReplyPid]) ->
     {ok, AuthConfig} = application:get_env(carotene, subscribe_auth),
-    % TODO: things can go wrong here with authorization, lets advance first
+    % TODO: things can go wrong here with authorization, but lets advance first
     ok = maybe_consume(UserId, AuthConfig, ExchangeName),
 
     gen_server:cast(presence_serv, {subscribe_exchange, UserId, ExchangeName, self()}),
@@ -56,7 +56,6 @@ maybe_consume(UserId, AuthConfig, ExchangeName) ->
         ok -> subscribe(ExchangeName);
         _ -> error
     end.
-
 
 can_subscribe(UserId, AuthConfig, ExchangeName) ->
     case lists:keyfind(enabled, 1, AuthConfig) of

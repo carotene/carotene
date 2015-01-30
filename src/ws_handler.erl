@@ -35,11 +35,11 @@ process_message([{<<"joinexchange">>, ExchangeName}], State = #state{exchanges=E
     {ok, ExchangePid} = supervisor:start_child(msg_exchange_sup, [ExchangeName, UserId, self()]),
     {ok, QueuePid} = supervisor:start_child(msg_queue_sup, [ExchangeName, UserId, self()]),
     % TODO: add only once
-    State#state{exchanges = dict:append(ExchangeName, ExchangePid, Exs), queues = dict:append(ExchangeName, QueuePid, Qs)};
+    State#state{exchanges = dict:store(ExchangeName, ExchangePid, Exs), queues = dict:store(ExchangeName, QueuePid, Qs)};
 
 process_message([{<<"send">>, Message}, {<<"exchange">>, ExchangeName}], State = #state{exchanges=Exs, user_id=UserId, user_data=UserData}) ->
     % TODO: make robust
-    {ok, [ExchangePid]} = dict:find(ExchangeName, Exs),
+    {ok, ExchangePid} = dict:find(ExchangeName, Exs),
     gen_server:call(ExchangePid, {send, jsx:encode([{<<"message">>, Message},
                                                     {<<"exchange">>, ExchangeName}, 
                                                     {<<"user_id">>, UserId},

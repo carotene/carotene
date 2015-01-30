@@ -20,13 +20,32 @@ init([]) ->
     State = #state{exchanges = dict:new(), queues = dict:new()},
     {ok, State}.
 
-handle_call({join_exchange, ExchangeName}, _From, State=#state{exchanges=Exs, queues=Qs}) ->
+handle_call({publish, {exchange_name, ExchangeName}, {message, Message}}, _From, State=#state{exchanges=Exs}) ->
+    % TODO error handling
+    {ok, Exchange} = dict:find(ExchangeName, Exs),
+    ok = gen_server:call(Exchange, {publish,  Message}),
+    {reply, ok, State};
 
-    {ok, ExchangePid} = supervisor:start_child(msg_exchange_sup, [ExchangeName, admin, self()]),
-    {ok, QueuePid} = supervisor:start_child(msg_queue_sup, [ExchangeName, admin, self()]),
-    % TODO: add only once
-    NewState = State#state{exchanges = dict:append(ExchangeName, ExchangePid, Exs), queues = dict:append(ExchangeName, QueuePid, Qs)},
-    {reply, ok, NewState};
+handle_call({create_exchange, {exchange_name, ExchangeName}, {subscribe, SaneSubscribe}, {publish, SanePublish}, {subscribe_callback_url, Url}}, _From, State=#state{exchanges=Exs, queues=Qs}) ->
+
+    NewQs = case SaneSubscribe of
+                true -> 
+                    subscribe(ExchangeName),
+                    %TODO: Not what we need, let's move forward
+                    Qs;
+                false -> Qs
+            end,
+
+    NewExs = case SanePublish of
+                 true -> {BrokerModule, Broker} = broker_sup:get_broker(),
+                         {ok, Exchange} = apply(BrokerModule, start_exchange, [Broker]),
+                         ok = apply(BrokerModule, declare_exchange, [Exchange, {ExchangeName, <<"fanout">>}]),
+                         %TODO: add only once, check if already added
+                         dict:store(ExchangeName, Exchange, Exs);
+                 false -> Exs
+             end,
+
+    {reply, ok, State#state{exchanges = NewExs, queues = NewQs}};
 
 handle_call(get_exchanges, _From, State=#state{exchanges=Exs}) ->
     {reply, {ok, dict:fetch_keys(Exs)}, State};
@@ -40,6 +59,9 @@ handle_call(_Request, _From, State) ->
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
+handle_info({received_message, Msg}, State) ->
+    {noreply, State};
+
 handle_info(stop, State) ->
     {stop, shutdown, State};
 
@@ -51,3 +73,11 @@ terminate(_Reason, _State) ->
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
+
+subscribe(ExchangeName) ->
+    {_BrokerModule, Broker} = broker_sup:get_broker(),
+    % TODO: This is particular to rabbitmq
+    {ok, QueueServer} = gen_server:call(Broker, start_queue),
+    {ok, Queue} = gen_server:call(QueueServer, {declare_queue}),
+    ok = gen_server:call(QueueServer, {queue_bind, Queue, ExchangeName}),
+    ok = gen_server:call(QueueServer, {consume, Queue, self()}).
