@@ -7,8 +7,8 @@
 -record(state, {
           user_id,
           user_data,
-          exchanges = [],
-          queues = []
+          exchanges,
+          queues
 }).
 
 init(Req, _Opts) ->
@@ -42,7 +42,6 @@ process_message([{<<"joinexchange">>, ExchangeName}], State = #state{exchanges=E
         error -> dict:store(ExchangeName, QueuePid, Qs);
         {ok, _} -> Qs
     end,
-
     State#state{exchanges = NewExs, queues = NewQs};
 
 process_message([{<<"send">>, Message}, {<<"exchange">>, ExchangeName}], State = #state{exchanges=Exs, user_id=UserId, user_data=UserData}) ->
