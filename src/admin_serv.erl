@@ -27,7 +27,6 @@ handle_call({publish, {exchange_name, ExchangeName}, {message, Message}}, _From,
     {reply, ok, State};
 
 handle_call({create_exchange, {exchange_name, ExchangeName}, {subscribe, SaneSubscribe}, {publish, SanePublish}, {subscribe_callback_url, Url}}, _From, State=#state{exchanges=Exs, queues=Qs}) ->
-
     NewQs = case SaneSubscribe of
                 true -> 
                     subscribe(ExchangeName),

@@ -7,8 +7,8 @@
 -record(state, {
           user_id,
           user_data,
-          exchanges,
-          queues
+          exchanges = [],
+          queues = []
 }).
 
 init(Req, _Opts) ->
