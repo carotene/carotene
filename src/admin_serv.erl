@@ -21,12 +21,20 @@ init([]) ->
     {ok, State}.
 
 handle_call({publish, {exchange_name, ExchangeName}, {message, Message}}, _From, State=#state{exchanges=Exs}) ->
-    % TODO error handling
-    {ok, Exchange} = dict:find(ExchangeName, Exs),
-    ok = gen_server:call(Exchange, {publish,  Message}),
-    {reply, ok, State};
+    
+    NewExs = case dict:find(ExchangeName, Exs) of
+                 error -> {BrokerModule, Broker} = broker_sup:get_broker(),
+                          {ok, Exchange} = apply(BrokerModule, start_exchange, [Broker]),
+                          ok = apply(BrokerModule, declare_exchange, [Exchange, {ExchangeName, <<"fanout">>}]),
+                          gen_server:call(Exchange, {publish,  Message}),
+                          dict:store(ExchangeName, Exchange, Exs);
+                 {ok, Exchange} -> gen_server:call(Exchange, {publish,  Message}),
+                                   Exs
+             end,
 
-handle_call({create_exchange, {exchange_name, ExchangeName}, {subscribe, SaneSubscribe}, {publish, SanePublish}, {subscribe_callback_url, Url}}, _From, State=#state{exchanges=Exs, queues=Qs}) ->
+    {reply, ok, State#state{exchanges = NewExs}};
+
+handle_call({cconfig_exchange, {exchange_name, ExchangeName}, {subscribe, SaneSubscribe}, {subscribe_callback_url, Url}}, _From, State=#state{queues=Qs}) ->
     NewQs = case SaneSubscribe of
                 true -> 
                     subscribe(ExchangeName),
@@ -34,21 +42,21 @@ handle_call({create_exchange, {exchange_name, ExchangeName}, {subscribe, SaneSub
                 false -> Qs
             end,
 
-    NewExs = case SanePublish of
-                 true -> {BrokerModule, Broker} = broker_sup:get_broker(),
-                         {ok, Exchange} = apply(BrokerModule, start_exchange, [Broker]),
-                         ok = apply(BrokerModule, declare_exchange, [Exchange, {ExchangeName, <<"fanout">>}]),
-                         case dict:find(ExchangeName, Exs) of
-                             error -> dict:store(ExchangeName, Exchange, Exs);
-                             {ok, _} -> Exs
-                         end;
-                 false -> Exs
-             end,
+%    NewExs = case SanePublish of
+%                 true -> {BrokerModule, Broker} = broker_sup:get_broker(),
+%                         {ok, Exchange} = apply(BrokerModule, start_exchange, [Broker]),
+%                         ok = apply(BrokerModule, declare_exchange, [Exchange, {ExchangeName, <<"fanout">>}]),
+%                         case dict:find(ExchangeName, Exs) of
+%                             error -> dict:store(ExchangeName, Exchange, Exs);
+%                             {ok, _} -> Exs
+%                         end;
+%                 false -> Exs
+%             end,
 
-    {reply, ok, State#state{exchanges = NewExs, queues = NewQs}};
+    {reply, ok, State#state{queues = NewQs}};
 
-handle_call(get_exchanges, _From, State=#state{exchanges=Exs}) ->
-    {reply, {ok, dict:fetch_keys(Exs)}, State};
+handle_call(get_subscribed, _From, State=#state{queues=Qs}) ->
+    {reply, {ok, dict:fetch_keys(Qs)}, State};
 
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State};
