@@ -21,7 +21,6 @@ init([]) ->
     {ok, State}.
 
 handle_call({publish, {exchange_name, ExchangeName}, {message, Message}}, _From, State=#state{exchanges=Exs}) ->
-    
     NewExs = case dict:find(ExchangeName, Exs) of
                  error -> {BrokerModule, Broker} = broker_sup:get_broker(),
                           {ok, Exchange} = apply(BrokerModule, start_exchange, [Broker]),
@@ -34,29 +33,16 @@ handle_call({publish, {exchange_name, ExchangeName}, {message, Message}}, _From,
 
     {reply, ok, State#state{exchanges = NewExs}};
 
-handle_call({cconfig_exchange, {exchange_name, ExchangeName}, {subscribe, SaneSubscribe}, {subscribe_callback_url, Url}}, _From, State=#state{queues=Qs}) ->
-    NewQs = case SaneSubscribe of
-                true -> 
-                    subscribe(ExchangeName),
-                    dict:store(ExchangeName, Url, Qs);
-                false -> Qs
+handle_call({subscribe, {exchange_name, ExchangeName}}, _From, State=#state{queues=Qs}) ->
+    subscribe(ExchangeName),
+    NewQs = case lists:member(ExchangeName, Qs) of
+                true -> Qs;
+                false -> lists:append(ExchangeName, Qs)
             end,
-
-%    NewExs = case SanePublish of
-%                 true -> {BrokerModule, Broker} = broker_sup:get_broker(),
-%                         {ok, Exchange} = apply(BrokerModule, start_exchange, [Broker]),
-%                         ok = apply(BrokerModule, declare_exchange, [Exchange, {ExchangeName, <<"fanout">>}]),
-%                         case dict:find(ExchangeName, Exs) of
-%                             error -> dict:store(ExchangeName, Exchange, Exs);
-%                             {ok, _} -> Exs
-%                         end;
-%                 false -> Exs
-%             end,
-
     {reply, ok, State#state{queues = NewQs}};
 
 handle_call(get_subscribed, _From, State=#state{queues=Qs}) ->
-    {reply, {ok, dict:fetch_keys(Qs)}, State};
+    {reply, {ok, Qs}, State};
 
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State};
@@ -68,12 +54,8 @@ handle_cast(_Msg, State) ->
     {noreply, State}.
 
 handle_info({received_message, Msg, exchange, ExchangeName}, State = #state{queues = Qs}) ->
-    % TODO robust
-    case dict:find(ExchangeName, Qs) of
-        error -> error;
-        {ok, Url} -> httpc:request(post, {Url, [], "application/x-www-form-urlencoded", "nmessage="++binary_to_list(Msg)++"&exchange="++binary_to_list(ExchangeName)}, [], [])
-    end,
-
+    {ok, Url} = application:get_env(carotene, subscribe_url),
+    httpc:request(post, {Url, [], "application/x-www-form-urlencoded", "nmessage="++binary_to_list(Msg)++"&exchange="++binary_to_list(ExchangeName)}, [], []),
     {noreply, State};
 
 handle_info(stop, State) ->
