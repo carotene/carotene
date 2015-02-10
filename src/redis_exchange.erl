@@ -26,7 +26,7 @@ init([Client]) ->
 handle_info(shutdown, State) ->
     {stop, normal, State}.
 
-handle_call({declare_exchange, {Exchange, Type}}, _From, State = #state{client = Client}) ->
+handle_call({declare_exchange, {Exchange, _Type}}, _From, State) ->
     {reply, ok, State#state{exchange = Exchange}};
 
 handle_call({publish, Message}, _From, State = #state{client = Client, exchange = Exchange}) ->

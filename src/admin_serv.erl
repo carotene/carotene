@@ -53,7 +53,7 @@ handle_call(_Request, _From, State) ->
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
-handle_info({received_message, Msg, exchange, ExchangeName}, State = #state{queues = Qs}) ->
+handle_info({received_message, Msg, exchange, ExchangeName}, State) ->
     {ok, Url} = application:get_env(carotene, subscribe_url),
     httpc:request(post, {Url, [], "application/x-www-form-urlencoded", "nmessage="++binary_to_list(Msg)++"&exchange="++binary_to_list(ExchangeName)}, [], []),
     {noreply, State};

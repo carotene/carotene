@@ -1,3 +1,5 @@
 deps/*
 ebin/*
 .eunit/*
+_rel/*
+.erlang.mk.packages*

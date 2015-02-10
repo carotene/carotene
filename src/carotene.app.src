@@ -6,8 +6,10 @@
   {applications, [
                   kernel,
                   stdlib,
-                  cowboy
+                  cowboy,
+                  inets
                  ]},
   {mod, { carotene_app, []}},
+  {modules, []},
   {env, []}
  ]}.

@@ -22,7 +22,6 @@ handle_cast(_Message, State) ->
     {noreply, State}.
 
 handle_info({start_broker, Sup}, State = #state{supervisor = Sup}) ->
-    inets:start(),
     %TODO: monitor broker instead of making it permanent so we update the ref
     {ok, _} = supervisor:start_child(Sup, {broker,
          {broker_sup, start_link, []},
@@ -46,7 +45,6 @@ handle_info(shutdown, State) ->
     {noreply, State}.
 
 terminate(_Reason, _State) ->
-    inets:stop(),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->
