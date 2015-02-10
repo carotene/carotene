@@ -7,6 +7,8 @@
                   kernel,
                   stdlib,
                   cowboy,
+                  rabbit_common,
+                  amqp_client,
                   inets
                  ]},
   {mod, { carotene_app, []}},
