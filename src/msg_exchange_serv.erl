@@ -35,7 +35,7 @@ handle_info({'DOWN', _Ref, process, _Pid, _}, State) ->
 handle_info(shutdown, State) ->
     {stop, shutdown, State}.
 
-handle_call({send, Message}, _From, State = #state{exchange = Exchange, exchange_name = ExchangeName, auth_config = AuthConfig, user_id = UserId}) ->
+handle_call({publish, Message}, _From, State = #state{exchange = Exchange, exchange_name = ExchangeName, auth_config = AuthConfig, user_id = UserId}) ->
     case already_auth of
         true -> ok = gen_server:call(Exchange, {publish,  Message}),
                 {reply, ok, State};

@@ -32,6 +32,7 @@ websocket_info(_Info, Req, State) ->
     {ok, Req, State}.
 
 process_message([{<<"joinexchange">>, ExchangeName}], State = #state{exchanges=Exs, queues=Qs, user_id=UserId}) ->
+    io:format("joined exchange ~p ~n", [ExchangeName]),
     {ok, ExchangePid} = supervisor:start_child(msg_exchange_sup, [ExchangeName, UserId, self()]),
     {ok, QueuePid} = supervisor:start_child(msg_queue_sup, [ExchangeName, UserId, self()]),
     NewExs = case dict:find(ExchangeName, Exs) of
@@ -47,7 +48,7 @@ process_message([{<<"joinexchange">>, ExchangeName}], State = #state{exchanges=E
 process_message([{<<"send">>, Message}, {<<"exchange">>, ExchangeName}], State = #state{exchanges=Exs, user_id=UserId, user_data=UserData}) ->
     % TODO: make robust
     {ok, ExchangePid} = dict:find(ExchangeName, Exs),
-    gen_server:call(ExchangePid, {send, jsx:encode([{<<"message">>, Message},
+    gen_server:call(ExchangePid, {publish, jsx:encode([{<<"message">>, Message},
                                                     {<<"exchange">>, ExchangeName}, 
                                                     {<<"user_id">>, UserId},
                                                     {<<"user_data">>, UserData}

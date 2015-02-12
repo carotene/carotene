@@ -21,13 +21,17 @@ init([]) ->
     {ok, State}.
 
 handle_call({publish, {exchange_name, ExchangeName}, {message, Message}}, _From, State=#state{exchanges=Exs}) ->
+    Payload = jsx:encode([{<<"message">>, Message},
+                          {<<"exchange">>, ExchangeName}, 
+                          {<<"from_server">>, <<"true">>}
+                         ]),
     NewExs = case dict:find(ExchangeName, Exs) of
                  error -> {BrokerModule, Broker} = broker_sup:get_broker(),
                           {ok, Exchange} = apply(BrokerModule, start_exchange, [Broker]),
                           ok = apply(BrokerModule, declare_exchange, [Exchange, {ExchangeName, <<"fanout">>}]),
-                          gen_server:call(Exchange, {publish,  Message}),
+                          gen_server:call(Exchange, {publish, Payload}),
                           dict:store(ExchangeName, Exchange, Exs);
-                 {ok, Exchange} -> gen_server:call(Exchange, {publish,  Message}),
+                 {ok, Exchange} -> gen_server:call(Exchange, {publish,  Payload}),
                                    Exs
              end,
 
