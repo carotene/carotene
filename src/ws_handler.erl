@@ -22,10 +22,11 @@ websocket_handle(_Data, Req, State) ->
     {ok, Req, State}.
 
 websocket_info({presence_response, Msg}, Req, State) ->
-    io:format("presence response ~p ~n", [Msg]),
     {reply, {text, Msg}, Req, State};
 websocket_info({received_message, Msg, exchange, _ExchangeName}, Req, State) ->
     {reply, {text, Msg}, Req, State};
+websocket_info({just_send, Msg}, Req, State) ->
+    {reply, {text, jsx:encode([{<<"info">>, Msg}])}, Req, State};
 websocket_info({timeout, _Ref, Msg}, Req, State) ->
     {reply, {text, Msg}, Req, State};
 websocket_info(_Info, Req, State) ->
@@ -69,15 +70,21 @@ process_message([{<<"presence">>, ExchangeName}], State = #state{exchanges=Exs})
 
 process_message([{<<"authenticate">>, AssumedUserId},{<<"token">>, Token}], State ) ->
     {ok, AuthenticateUrl} = application:get_env(carotene, authenticate_url),
-    io:format("User id ~p, Token ~p~n", [AssumedUserId, Token]),
-    {ok, {{_Version, 200, _ReasonPhrase}, _Headers, Body}} = httpc:request(post, {AuthenticateUrl, [], "application/x-www-form-urlencoded", "user_id="++binary_to_list(AssumedUserId)++"&token="++binary_to_list(Token)}, [], []),
-    io:format("Authenticate response: ~p~n", [Body]),
-    AuthResult = jsx:decode(binary:list_to_bin(Body)),
-    {UserID, UserData} = case AuthResult of
-                             [{<<"authenticated">>, <<"true">>}, {<<"userdata">>, ResUserData}] -> {AssumedUserId, ResUserData};
-                             _ -> {undefined, undefined}
-                         end,
-    State#state{user_id = UserID, user_data = UserData};
+    case httpc:request(post, {AuthenticateUrl, [], "application/x-www-form-urlencoded", "user_id="++binary_to_list(AssumedUserId)++"&token="++binary_to_list(Token)}, [], []) of
+        {ok, {{_Version, 200, _ReasonPhrase}, _Headers, Body}} -> 
+            AuthResult = jsx:decode(binary:list_to_bin(Body)),
+            {UserID, UserData} = case AuthResult of
+                                     % TODO: Can return in different order
+                                     [{<<"authenticated">>, true}, {<<"user_data">>, ResUserData}] ->
+                                         self() ! {just_send, <<"Authenticated">>},
+                                         {AssumedUserId, ResUserData};
+                                     _ -> self() ! {just_send, <<"Authentication failed">>},
+                                          {undefined, undefined}
+                                 end,
+            State#state{user_id = UserID, user_data = UserData};
+        _ -> self() ! {just_send, <<"Authentication error: Bad response from server">>},
+            State
+    end;
 
 process_message(_, State) ->
     io:format("unknown message~n"),
