@@ -109,24 +109,31 @@ handle_cast({leave_exchange, UserId, ExchangeName, From}, State=#state{refs_pub=
         {ok, Ref} -> erlang:demonitor(Ref, [flush]),
                      dict:erase(From, Refs)
     end,
-    {noreply, State#state{refs_pub=NewRefs}}.
+    {noreply, State#state{refs_pub=NewRefs}};
 
-%handle_cast({subscribe_exchange, UserId, ExchangeName, From}, State=#state{pid_exchange_user_list_sub=Peul, refs_sub=Refs}) ->
-%    Ref = erlang:monitor(process, From),
-%    NewRefs = dict:store(From, Ref, Refs),
-%
-%    NewPeul = [{From, ExchangeName, UserId}|Peul],
-%    {noreply, State#state{pid_exchange_user_list_sub=NewPeul, refs_pub=NewRefs}};
-%
-%handle_cast({unsubscribe_exchange, UserId, ExchangeName, From}, State=#state{pid_exchange_user_list_sub=Peul, refs_sub=Refs}) ->
-%    NewPeul = lists:delete({From, ExchangeName, UserId}, Peul),
-%    NewRefs = case dict:find(From, Refs) of
-%        error -> Refs;
-%        {ok, Ref} -> erlang:demonitor(Ref, [flush]),
-%                     dict:erase(From, Refs)
-%    end,
-%    {noreply, State#state{pid_exchange_user_list_sub=NewPeul, refs_sub=NewRefs}}.
-%
+handle_cast({subscribe_exchange, UserId, ExchangeName, From}, State=#state{refs_sub=Refs}) ->
+    Ref = erlang:monitor(process, From),
+    NewRefs = dict:store(From, Ref, Refs),
+    F = fun() ->
+                mnesia:write(#subscribers{pid=From,
+                                          exchange_name=ExchangeName,
+                                          user_id=UserId})
+        end,
+    mnesia:activity(transaction, F),
+
+    {noreply, State#state{refs_pub=NewRefs}};
+
+handle_cast({unsubscribe_exchange, UserId, ExchangeName, From}, State=#state{refs_sub=Refs}) ->
+    NewRefs = case dict:find(From, Refs) of
+        error -> Refs;
+        {ok, Ref} -> erlang:demonitor(Ref, [flush]),
+                     dict:erase(From, Refs)
+    end,
+    mnesia:delete(publishers, #subscribers{pid=From,
+                                           exchange_name=ExchangeName,
+                                           user_id=UserId}),
+    {noreply, State#state{refs_sub=NewRefs}}.
+
 terminate(_Reason, _State) ->
     ok.
 
