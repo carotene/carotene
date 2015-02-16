@@ -46,7 +46,8 @@ handle_call({subscribe, {exchange_name, ExchangeName}}, _From, State=#state{queu
     {reply, ok, State#state{queues = NewQs}};
 
 handle_call(get_subscribed, _From, State=#state{queues=Qs}) ->
-    {reply, {ok, Qs}, State};
+    Exchanges = dict:fetch_keys(Qs),
+    {reply, {ok, Exchanges}, State};
 
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State};

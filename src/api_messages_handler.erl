@@ -12,7 +12,7 @@ init(Req, Opts) ->
     {cowboy_rest, Req, Opts}.
 
 allowed_methods(Req, State) ->
-    {[<<"GET">>, <<"POST">>], Req, State}.
+    {[<<"POST">>], Req, State}.
 
 %content_types_provided(Req, State) ->
 %    {[

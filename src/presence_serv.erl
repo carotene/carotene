@@ -8,9 +8,9 @@
 -export([init/1, terminate/2, code_change/3, handle_call/3,
          handle_cast/2, handle_info/2]).
 
--record(state, {pid_exchange_user_list_pub, refs_pub, pid_exchange_user_list_sub, refs_sub}).
--record(subscriber, {pid, exchange_name, user_id}).
--record(publisher, {pid, exchange_name, user_id}).
+-record(state, {refs_pub, refs_sub}).
+-record(subscribers, {pid, exchange_name, user_id}).
+-record(publishers, {pid, exchange_name, user_id}).
 
 
 start_link() ->
@@ -22,15 +22,20 @@ stop(Pid) ->
 
 init([]) ->
     Nodes = [node()],
-    rpc:multicall(Nodes, application, start, [mnesia]),
+    %ok = mnesia:create_schema(Nodes),
+    
+    application:start(mnesia),
+%    mnesia:set_debug_level(debug),
+    
     mnesia:create_table(subscribers,
-                        [{attributes, record_info(fields, subscriber)},
-                         {disc_copies, Nodes}]),
+                 [{attributes, record_info(fields, subscribers)},
+                  {disc_copies, Nodes}]),
     mnesia:create_table(publishers,
-                        [{attributes, record_info(fields, publisher)},
+                        [{attributes, record_info(fields, publishers)},
                          {disc_copies, Nodes}]),
-    rpc:multicall(Nodes, application, stop, [mnesia]),
-    State = #state{pid_exchange_user_list_pub = [], pid_exchange_user_list_sub = [], refs_pub=dict:new(), refs_sub=dict:new()},
+    application:stop(mnesia),
+    application:start(mnesia),
+    State = #state{refs_pub=dict:new(), refs_sub=dict:new()},
     {ok, State}.
 
 
@@ -41,14 +46,14 @@ handle_info({'DOWN', _Ref, process, Pid, _}, State=#state{refs_pub=Refs, refs_su
                                dict:erase(Pid)
               end,
 
-    mnesia:delete(publishers, #publisher{pid=Pid}),
+    mnesia:delete(publishers, #publishers{pid=Pid}),
     NewRefsSub = case dict:find(Pid, RefsSub) of
                   error -> Refs;
                      {ok, RefSub} -> erlang:demonitor(RefSub, [flush]),
                                      dict:erase(Pid)
               end,
 
-    mnesia:delete(subscribers, #publisher{pid=Pid}),
+    mnesia:delete(subscribers, #publishers{pid=Pid}),
 
     {noreply, State#state{refs_pub=NewRefs, refs_sub=NewRefsSub}};
 
@@ -56,17 +61,17 @@ handle_info(shutdown, State) ->
     {stop, shutdown, State}.
 
 handle_call({presence, ExchangeName}, _From, State) ->
-    PatternPub = #publisher{_ = '_', exchange_name = ExchangeName},
+    PatternPub = #publishers{_ = '_', exchange_name = ExchangeName},
     F = fun() ->
                 Res = mnesia:match_object(PatternPub),
-                [UserId || #publisher{user_id=UserId} <- Res]
+                [UserId || #publishers{user_id=UserId} <- Res]
         end,
     UsersDupPub =mnesia:activity(transaction, F),
     UsersPub = sets:to_list(sets:from_list(UsersDupPub)),
-    PatternSub = #subscriber{_ = '_', exchange_name = ExchangeName},
+    PatternSub = #subscribers{_ = '_', exchange_name = ExchangeName},
     FSub = fun() ->
                 Res = mnesia:match_object(PatternSub),
-                [UserId || #subscriber{user_id=UserId} <- Res]
+                [UserId || #subscribers{user_id=UserId} <- Res]
         end,
     UsersDupSub =mnesia:activity(transaction, FSub),
     UsersSub = sets:to_list(sets:from_list(UsersDupSub)),
@@ -74,17 +79,17 @@ handle_call({presence, ExchangeName}, _From, State) ->
     {reply, {UsersPub, UsersSub}, State};
 
 handle_call({get_exchanges, UserId}, _From, State) ->
-    PatternPub = #publisher{_ = '_', user_id = UserId},
+    PatternPub = #publishers{_ = '_', user_id = UserId},
     F = fun() ->
                 Res = mnesia:match_object(PatternPub),
-                [ExchangeName || #publisher{exchange_name=ExchangeName} <- Res]
+                [ExchangeName || #publishers{exchange_name=ExchangeName} <- Res]
         end,
     ExchangesDupPub =mnesia:activity(transaction, F),
     ExchangesPub = sets:to_list(sets:from_list(ExchangesDupPub)),
-    PatternSub = #subscriber{_ = '_', user_id = UserId},
+    PatternSub = #subscribers{_ = '_', user_id = UserId},
     FSub = fun() ->
                 Res = mnesia:match_object(PatternSub),
-                [ExchangeName || #subscriber{exchange_name=ExchangeName} <- Res]
+                [ExchangeName || #subscribers{exchange_name=ExchangeName} <- Res]
         end,
     ExchangesDupSub =mnesia:activity(transaction, FSub),
     ExchangesSub = sets:to_list(sets:from_list(ExchangesDupSub)),
@@ -94,7 +99,7 @@ handle_cast({join_exchange, UserId, ExchangeName, From}, State=#state{refs_pub=R
     Ref = erlang:monitor(process, From),
     NewRefs = dict:store(From, Ref, Refs),
     F = fun() ->
-                mnesia:write(#publisher{ pid=From,
+                mnesia:write(#publishers{ pid=From,
                                         exchange_name=ExchangeName,
                                         user_id=UserId})
         end,
@@ -102,7 +107,7 @@ handle_cast({join_exchange, UserId, ExchangeName, From}, State=#state{refs_pub=R
     {noreply, State#state{refs_pub=NewRefs}};
 
 handle_cast({leave_exchange, UserId, ExchangeName, From}, State=#state{refs_pub=Refs}) ->
-    mnesia:delete(publishers, #publisher{pid=From,
+    mnesia:delete(publishers, #publishers{pid=From,
                                                    exchange_name=ExchangeName,
                                                    user_id=UserId}),
     NewRefs = case dict:find(From, Refs) of
@@ -110,24 +115,31 @@ handle_cast({leave_exchange, UserId, ExchangeName, From}, State=#state{refs_pub=
         {ok, Ref} -> erlang:demonitor(Ref, [flush]),
                      dict:erase(From, Refs)
     end,
-    {noreply, State#state{refs_pub=NewRefs}}.
+    {noreply, State#state{refs_pub=NewRefs}};
 
-%handle_cast({subscribe_exchange, UserId, ExchangeName, From}, State=#state{pid_exchange_user_list_sub=Peul, refs_sub=Refs}) ->
-%    Ref = erlang:monitor(process, From),
-%    NewRefs = dict:store(From, Ref, Refs),
-%
-%    NewPeul = [{From, ExchangeName, UserId}|Peul],
-%    {noreply, State#state{pid_exchange_user_list_sub=NewPeul, refs_pub=NewRefs}};
-%
-%handle_cast({unsubscribe_exchange, UserId, ExchangeName, From}, State=#state{pid_exchange_user_list_sub=Peul, refs_sub=Refs}) ->
-%    NewPeul = lists:delete({From, ExchangeName, UserId}, Peul),
-%    NewRefs = case dict:find(From, Refs) of
-%        error -> Refs;
-%        {ok, Ref} -> erlang:demonitor(Ref, [flush]),
-%                     dict:erase(From, Refs)
-%    end,
-%    {noreply, State#state{pid_exchange_user_list_sub=NewPeul, refs_sub=NewRefs}}.
-%
+handle_cast({subscribe_exchange, UserId, ExchangeName, From}, State=#state{refs_sub=Refs}) ->
+    Ref = erlang:monitor(process, From),
+    NewRefs = dict:store(From, Ref, Refs),
+    F = fun() ->
+                mnesia:write(#subscribers{pid=From,
+                                          exchange_name=ExchangeName,
+                                          user_id=UserId})
+        end,
+    mnesia:activity(transaction, F),
+
+    {noreply, State#state{refs_pub=NewRefs}};
+
+handle_cast({unsubscribe_exchange, UserId, ExchangeName, From}, State=#state{refs_sub=Refs}) ->
+    NewRefs = case dict:find(From, Refs) of
+        error -> Refs;
+        {ok, Ref} -> erlang:demonitor(Ref, [flush]),
+                     dict:erase(From, Refs)
+    end,
+    mnesia:delete(publishers, #subscribers{pid=From,
+                                           exchange_name=ExchangeName,
+                                           user_id=UserId}),
+    {noreply, State#state{refs_sub=NewRefs}}.
+
 terminate(_Reason, _State) ->
     ok.
 

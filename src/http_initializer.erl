@@ -34,6 +34,7 @@ handle_info({start_broker, Sup}, State = #state{supervisor = Sup}) ->
         {'_', [
             {"/api/exchanges/[:exchange_name/]", api_exchanges_handler, []},
             {"/api/exchanges/:exchange_name/messages", api_messages_handler, []},
+            {"/api/exchanges/:exchange_name/presence", api_presence_handler, []},
             {"/websocket", ws_handler, []}
         ]}
     ]),
