@@ -35,7 +35,7 @@ handle_info(shutdown, State) ->
     {stop, normal, State}.
 
 handle_call({declare_queue}, _From, State = #state{channel = Channel}) ->
-    #'queue.declare_ok'{queue = Queue} = amqp_channel:call(Channel, #'queue.declare'{}),
+    #'queue.declare_ok'{queue = Queue} = amqp_channel:call(Channel, #'queue.declare'{exclusive = true}),
     {reply, {ok, Queue}, State};
 handle_call({queue_bind, Queue, Exchange}, _From, State = #state{channel = Channel}) ->
     amqp_channel:call(Channel, #'queue.bind'{queue = Queue,
