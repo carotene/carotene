@@ -15,6 +15,7 @@ init(Req, _Opts) ->
     {cowboy_websocket, Req, #state{exchanges=dict:new(), queues=dict:new()}}.
 
 websocket_handle({text, Data}, Req, State) ->
+    % TODO: check it is json
     Msg = jsx:decode(Data),
     StateNew = process_message(Msg, State),
     {ok, Req, StateNew};
@@ -33,7 +34,6 @@ websocket_info(_Info, Req, State) ->
     {ok, Req, State}.
 
 process_message([{<<"joinexchange">>, ExchangeName}], State = #state{exchanges=Exs, queues=Qs, user_id=UserId}) ->
-    io:format("joined exchange ~p ~n", [ExchangeName]),
     {ok, ExchangePid} = supervisor:start_child(msg_exchange_sup, [ExchangeName, UserId, self()]),
     {ok, QueuePid} = supervisor:start_child(msg_queue_sup, [ExchangeName, UserId, self()]),
     NewExs = case dict:find(ExchangeName, Exs) of

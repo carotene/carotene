@@ -22,6 +22,7 @@ stop(Pid) ->
 
 init([]) ->
     Nodes = [node()],
+    mnesia:create_schema(Nodes),
     rpc:multicall(Nodes, application, start, [mnesia]),
     mnesia:create_table(subscribers,
                         [{attributes, record_info(fields, subscribers)},
@@ -40,14 +41,16 @@ handle_info({'DOWN', _Ref, process, Pid, _}, State=#state{refs_pub=Refs, refs_su
                                dict:erase(Pid)
               end,
 
-    mnesia:delete(publishers, #publishers{pid=Pid}),
+    F = fun() -> mnesia:delete({publishers, Pid}) end,
+    mnesia:activity(transaction, F),
     NewRefsSub = case dict:find(Pid, RefsSub) of
                   error -> Refs;
                      {ok, RefSub} -> erlang:demonitor(RefSub, [flush]),
                                      dict:erase(Pid)
               end,
 
-    mnesia:delete(subscribers, #publishers{pid=Pid}),
+    F2 = fun() -> mnesia:delete({subscribers, Pid}) end,
+    mnesia:activity(transaction, F2),
 
     {noreply, State#state{refs_pub=NewRefs, refs_sub=NewRefsSub}};
 
@@ -101,9 +104,8 @@ handle_cast({join_exchange, UserId, ExchangeName, From}, State=#state{refs_pub=R
     {noreply, State#state{refs_pub=NewRefs}};
 
 handle_cast({leave_exchange, UserId, ExchangeName, From}, State=#state{refs_pub=Refs}) ->
-    mnesia:delete(publishers, #publishers{pid=From,
-                                                   exchange_name=ExchangeName,
-                                                   user_id=UserId}),
+    F = fun() -> mnesia:delete({publishers, From}) end,
+    mnesia:activity(transaction, F),
     NewRefs = case dict:find(From, Refs) of
         error -> Refs;
         {ok, Ref} -> erlang:demonitor(Ref, [flush]),
@@ -129,9 +131,8 @@ handle_cast({unsubscribe_exchange, UserId, ExchangeName, From}, State=#state{ref
         {ok, Ref} -> erlang:demonitor(Ref, [flush]),
                      dict:erase(From, Refs)
     end,
-    mnesia:delete(publishers, #subscribers{pid=From,
-                                           exchange_name=ExchangeName,
-                                           user_id=UserId}),
+    F = fun() -> mnesia:delete({subscribers, From}) end,
+    mnesia:activity(transaction, F),
     {noreply, State#state{refs_sub=NewRefs}}.
 
 terminate(_Reason, _State) ->
