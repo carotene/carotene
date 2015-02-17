@@ -26,10 +26,10 @@ init([]) ->
     rpc:multicall(Nodes, application, start, [mnesia]),
     mnesia:create_table(subscribers,
                         [{attributes, record_info(fields, subscribers)},
-                         {disc_copies, Nodes}]),
+                         {ram_copies, Nodes}]),
     mnesia:create_table(publishers,
                         [{attributes, record_info(fields, publishers)},
-                         {disc_copies, Nodes}]),
+                         {ram_copies, Nodes}]),
     State = #state{refs_pub=dict:new(), refs_sub=dict:new()},
     {ok, State}.
 
