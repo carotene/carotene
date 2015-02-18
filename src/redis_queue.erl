@@ -20,22 +20,20 @@ stop(Pid) ->
 init([Client]) ->
     {ok, #state{client = Client}}.
 
-handle_info({message, Msg}, #state{reply_pid = ReplyPid} = State) ->
-    ReplyPid ! {received_message, Msg},
+handle_info({'DOWN', _Ref, process, Pid, _}, State) ->
+    {stop, normal, State};
+
+handle_info({message, Msg}, #state{channel = Channel, reply_pid = ReplyPid} = State) ->
+    ReplyPid ! {received_message, Msg, exchange, Channel},
     {noreply, State};
+
 handle_info(shutdown, State) ->
     {stop, normal, State}.
 
-handle_call({message, _, Msg, _Pid}, _From, #state{channel = Channel, reply_pid = ReplyPid} = State) ->
-    ReplyPid ! {received_message, Msg, exchange, Channel},
-    {noreply, State};
-handle_call({declare_queue}, _From, State) ->
-    {reply, {ok, dummy}, State};
-handle_call({queue_bind, _Queue, Channel}, _From, State = #state{client = Client}) ->
+handle_call({subscribe, Channel}, {ReplyTo, _}, State = #state{client = Client}) ->
+    erlang:monitor(process, ReplyTo),
     gen_server:cast(Client, {subscribe, [Channel], self()}),
-    {reply, ok, State#state{ channel = Channel}};
-handle_call({consume, _Queue, ReplyPid}, _From, State) ->
-    {reply, ok, State#state{reply_pid = ReplyPid}};
+    {reply, ok, State#state{channel = Channel, reply_pid = ReplyTo}};
 
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State}.
@@ -43,7 +41,8 @@ handle_call(stop, _From, State) ->
 handle_cast(_Message, State) ->
     {noreply, State}.
 
-terminate(_Reason, _State) ->
+terminate(_Reason, State = #state{channel = Channel, client = Client}) ->
+    %gen_server:cast(Client, {unsubscribe, [Channel], self()}),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->

@@ -9,7 +9,7 @@
 
 -include_lib("carotene.hrl").
 
--record(state, {exchange_name, reply_pid, auth_config, already_auth, user_id}).
+-record(state, {exchange_name, reply_pid, auth_config, already_auth, user_id, queue}).
 
 start_link(ExchangeName, UserId, ReplyPid) ->
     Opts = [],
@@ -25,10 +25,13 @@ stop(Pid) ->
 init([ExchangeName, UserId, ReplyPid]) ->
     {ok, AuthConfig} = application:get_env(carotene, subscribe_auth),
     % TODO: things can go wrong here with authorization, but lets advance first
+    erlang:monitor(process, ReplyPid),
     ok = maybe_consume(UserId, AuthConfig, ExchangeName),
-
     gen_server:cast(presence_serv, {subscribe_exchange, UserId, ExchangeName, self()}),
     {ok, #state{reply_pid = ReplyPid, exchange_name = ExchangeName, user_id = UserId}}.
+
+handle_info({'DOWN', _Ref, process, _Pid, _}, State) ->
+    {stop, normal, State};
 
 handle_info({received_message, Msg, exchange, Exchange}, State = #state{reply_pid = ReplyPid}) ->
     ReplyPid ! {received_message, Msg, exchange, Exchange},
@@ -92,6 +95,4 @@ subscribe(ExchangeName) ->
     {_BrokerModule, Broker} = broker_sup:get_broker(),
     % TODO: This is particular to rabbitmq
     {ok, QueueServer} = gen_server:call(Broker, start_queue),
-    {ok, Queue} = gen_server:call(QueueServer, {declare_queue}),
-    ok = gen_server:call(QueueServer, {queue_bind, Queue, ExchangeName}),
-    ok = gen_server:call(QueueServer, {consume, Queue, self()}).
+    ok = gen_server:call(QueueServer, {subscribe, ExchangeName}).
