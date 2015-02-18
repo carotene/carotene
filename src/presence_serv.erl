@@ -38,7 +38,7 @@ handle_info({'DOWN', _Ref, process, Pid, _}, State=#state{refs_pub=Refs, refs_su
     NewRefs = case dict:find(Pid, Refs) of
                   error -> Refs;
                   {ok, Ref} -> erlang:demonitor(Ref, [flush]),
-                               dict:erase(Pid)
+                               dict:erase(Pid, Refs)
               end,
 
     F = fun() -> mnesia:delete({publishers, Pid}) end,
@@ -46,7 +46,7 @@ handle_info({'DOWN', _Ref, process, Pid, _}, State=#state{refs_pub=Refs, refs_su
     NewRefsSub = case dict:find(Pid, RefsSub) of
                   error -> Refs;
                      {ok, RefSub} -> erlang:demonitor(RefSub, [flush]),
-                                     dict:erase(Pid)
+                                     dict:erase(Pid, RefsSub)
               end,
 
     F2 = fun() -> mnesia:delete({subscribers, Pid}) end,
@@ -103,7 +103,7 @@ handle_cast({join_exchange, UserId, ExchangeName, From}, State=#state{refs_pub=R
     mnesia:activity(transaction, F),
     {noreply, State#state{refs_pub=NewRefs}};
 
-handle_cast({leave_exchange, UserId, ExchangeName, From}, State=#state{refs_pub=Refs}) ->
+handle_cast({leave_exchange, _UserId, _ExchangeName, From}, State=#state{refs_pub=Refs}) ->
     F = fun() -> mnesia:delete({publishers, From}) end,
     mnesia:activity(transaction, F),
     NewRefs = case dict:find(From, Refs) of
@@ -125,7 +125,7 @@ handle_cast({subscribe_exchange, UserId, ExchangeName, From}, State=#state{refs_
 
     {noreply, State#state{refs_pub=NewRefs}};
 
-handle_cast({unsubscribe_exchange, UserId, ExchangeName, From}, State=#state{refs_sub=Refs}) ->
+handle_cast({unsubscribe_exchange, _UserId, _ExchangeName, From}, State=#state{refs_sub=Refs}) ->
     NewRefs = case dict:find(From, Refs) of
         error -> Refs;
         {ok, Ref} -> erlang:demonitor(Ref, [flush]),
