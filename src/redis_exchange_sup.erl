@@ -23,7 +23,7 @@ init([Client]) ->
     {ok, { {simple_one_for_one, 5, 10}, [
              {redis_exchange,
               {redis_exchange, start_link, [Client]},
-              permanent,
+              temporary,
               infinity,
               worker,
               [redis_exchange] 

@@ -23,7 +23,7 @@ init([Channel]) ->
     {ok, { {simple_one_for_one, 5, 10}, [
              {rabbitmq_exchange,
               {rabbitmq_exchange, start_link, [Channel]},
-              permanent,
+              temporary,
               infinity,
               worker,
               [rabbitmq_exchange] 
