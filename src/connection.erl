@@ -77,31 +77,31 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%--------------------------------------------------------------------
 
-process_message([{<<"joinchannel">>, Channel}], State = #state{publishers=Pubs, subscribers=Subs, user_id=UserId}) ->
-    {ok, PublisherPid} = supervisor:start_child(msg_exchange_sup, [Channel, UserId, self()]),
+process_message([{<<"subscribe">>, Channel}], State = #state{subscribers=Subs, user_id=UserId}) ->
     {ok, SubscriberPid} = supervisor:start_child(msg_queue_sup, [Channel, UserId, self()]),
-    NewPubs = case dict:find(Channel, Pubs) of
-                  error -> dict:store(Channel, PublisherPid, Pubs);
-                  {ok, _} -> Pubs
-              end,
     NewSubs = case dict:find(Channel, Subs) of
                   error -> dict:store(Channel, SubscriberPid, Subs);
                   {ok, _} -> Subs
               end,
-    State#state{publishers = NewPubs, subscribers = NewSubs};
+    State#state{subscribers = NewSubs};
 
-process_message([{<<"channel">>, Channel}, {<<"send">>, Message}], State = #state{publishers=Pubs, user_id=UserId, user_data=UserData}) ->
-    case dict:find(Channel, Pubs) of
-        {ok, PublisherPid} -> 
-            gen_server:call(PublisherPid, {publish,
-                                           jsx:encode([{<<"message">>, Message},
-                                                       {<<"channel">>, Channel},
-                                                       {<<"user_id">>, UserId},
-                                                       {<<"user_data">>, UserData}
-                                                      ])});
-        error -> publisher_not_found
-    end,
-    State;
+process_message([{<<"channel">>, Channel}, {<<"publish">>, Message}], State = #state{publishers=Pubs, user_id=UserId, user_data=UserData}) ->
+    CompleteMessage = {publish, jsx:encode([{<<"message">>, Message},
+                                            {<<"channel">>, Channel},
+                                            {<<"user_id">>, UserId},
+                                            {<<"user_data">>, UserData}
+                                           ])},
+    NewPubs = case dict:find(Channel, Pubs) of
+                  {ok, PublisherPid} -> 
+                      gen_server:call(PublisherPid, CompleteMessage),
+                      Pubs;
+                  error -> 
+                      {ok, PublisherPid} = supervisor:start_child(msg_exchange_sup, [Channel, UserId, self()]),
+                      gen_server:call(PublisherPid, CompleteMessage),
+                      dict:store(Channel, PublisherPid, Pubs)
+
+              end,
+    State#state{publishers = NewPubs};
 
 process_message([{<<"presence">>, Channel}], State = #state{publishers=Pubs}) ->
     case dict:find(Channel, Pubs) of
