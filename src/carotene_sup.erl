@@ -69,5 +69,12 @@ init([]) ->
                                    infinity,
                                    worker,
                                    [admin_serv] 
+                                  },
+                                  {router,
+                                   {router, start_link, []},
+                                   permanent,
+                                   infinity,
+                                   worker,
+                                   [router] 
                                   }
                                  ]} }.

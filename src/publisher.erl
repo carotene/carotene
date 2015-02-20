@@ -34,12 +34,12 @@ handle_info(shutdown, State) ->
 
 handle_call({publish, Message}, _From, State = #state{broker = Broker, channel = Channel, auth_config = AuthConfig, user_id = UserId}) ->
     case already_auth of
-        true -> ok = gen_server:cast(Broker, {publish,  Message, channel, Channel}),
+        true -> gen_server:cast(router, {publish,  Message, channel, Channel}),
                 {reply, ok, State};
         _ ->
             case can_publish(UserId, AuthConfig, Channel) of
                 ok ->
-                    ok = gen_server:cast(Broker, {publish,  Message, channel, Channel}),
+                    gen_server:cast(router, {publish,  Message, channel, Channel}),
                     {reply, ok, State#state{already_auth = true}};
                 Error -> {reply, {error, Error}, State}
             end

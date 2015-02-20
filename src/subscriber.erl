@@ -31,7 +31,7 @@ init([Channel, UserId, ReplyPid]) ->
 handle_info({'DOWN', _Ref, process, _Pid, _}, State) ->
     {stop, normal, State};
 
-handle_info({received_message, Msg, channel, _Channel}, State = #state{reply_pid = ReplyPid}) ->
+handle_info({received_message, Msg}, State = #state{reply_pid = ReplyPid}) ->
     ReplyPid ! {received_message, Msg},
     {noreply, State};
 
@@ -91,6 +91,4 @@ ask_authentication(UserId, AuthConfig, Channel) ->
     end.
 
 subscribe(Channel) ->
-    {_BrokerModule, Broker} = broker_sup:get_broker(),
-    {ok, Subscriber} = gen_server:call(Broker, start_subscriber),
-    ok = gen_server:cast(Subscriber, {subscribe, Channel, from, self()}).
+    ok = gen_server:cast(router, {subscribe, Channel, from, self()}).
