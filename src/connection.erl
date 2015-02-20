@@ -10,10 +10,10 @@
 -record(state, {
           user_id,
           user_data,
-          exchanges,
-          queues,
+          publishers,
+          subscribers,
           transport
-}).
+         }).
 
 start_link(From) ->
     Opts = [],
@@ -25,7 +25,7 @@ start(From) ->
 
 init([From]) ->
     erlang:monitor(process, From),
-    {ok, #state{exchanges=dict:new(), queues=dict:new(), transport=From}}.
+    {ok, #state{publishers=dict:new(), subscribers=dict:new(), transport=From}}.
 
 handle_cast({process_message, Message}, State) ->
     StateNew = try jsx:decode(Message) of
@@ -47,7 +47,7 @@ handle_info({presence_response, Msg}, State = #state{transport = Transport}) ->
     Transport ! {text, Msg},
     {noreply, State};
 
-handle_info({received_message, Msg, exchange, _ExchangeName}, State = #state{transport = Transport}) ->
+handle_info({received_message, Msg}, State = #state{transport = Transport}) ->
     Transport ! {text, Msg},
     {noreply, State};
 
@@ -76,37 +76,37 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%--------------------------------------------------------------------
 
-process_message([{<<"joinexchange">>, ExchangeName}], State = #state{exchanges=Exs, queues=Qs, user_id=UserId}) ->
-    {ok, ExchangePid} = supervisor:start_child(msg_exchange_sup, [ExchangeName, UserId, self()]),
-    {ok, QueuePid} = supervisor:start_child(msg_queue_sup, [ExchangeName, UserId, self()]),
-    NewExs = case dict:find(ExchangeName, Exs) of
-        error -> dict:store(ExchangeName, ExchangePid, Exs);
-        {ok, _} -> Exs
-    end,
-    NewQs = case dict:find(ExchangeName, Qs) of
-        error -> dict:store(ExchangeName, QueuePid, Qs);
-        {ok, _} -> Qs
-    end,
-    State#state{exchanges = NewExs, queues = NewQs};
+process_message([{<<"joinchannel">>, Channel}], State = #state{publishers=Pubs, subscribers=Subs, user_id=UserId}) ->
+    {ok, PublisherPid} = supervisor:start_child(msg_exchange_sup, [Channel, UserId, self()]),
+    {ok, SubscriberPid} = supervisor:start_child(msg_queue_sup, [Channel, UserId, self()]),
+    NewPubs = case dict:find(Channel, Pubs) of
+                  error -> dict:store(Channel, PublisherPid, Pubs);
+                  {ok, _} -> Pubs
+              end,
+    NewSubs = case dict:find(Channel, Subs) of
+                  error -> dict:store(Channel, SubsriberPid, Subs);
+                  {ok, _} -> Subs
+              end,
+    State#state{publishers = NewPubs, subscribers = NewSubs};
 
-process_message([{<<"send">>, Message}, {<<"exchange">>, ExchangeName}], State = #state{exchanges=Exs, user_id=UserId, user_data=UserData}) ->
+process_message([{<<"send">>, Message}, {<<"channel">>, Channel}], State = #state{publishers=Pubs, user_id=UserId, user_data=UserData}) ->
     % TODO: make robust
-    {ok, ExchangePid} = dict:find(ExchangeName, Exs),
-    gen_server:call(ExchangePid, {publish, jsx:encode([{<<"message">>, Message},
-                                                    {<<"exchange">>, ExchangeName}, 
-                                                    {<<"user_id">>, UserId},
-                                                    {<<"user_data">>, UserData}
-                                                   ])}),
+    {ok, PublisherPid} = dict:find(Channel, Pubs),
+    gen_server:call(PublisherPid, {publish, jsx:encode([{<<"message">>, Message},
+                                                        {<<"publisher">>, Channel}, 
+                                                        {<<"user_id">>, UserId},
+                                                        {<<"user_data">>, UserData}
+                                                       ])}),
     State;
 
-process_message([{<<"presence">>, ExchangeName}], State = #state{exchanges=Exs}) ->
-    case dict:find(ExchangeName, Exs) of
+process_message([{<<"presence">>, Channel}], State = #state{publishers=Pubs}) ->
+    case dict:find(Channel, Pubs) of
         error -> ok;
         {ok, _} ->
-            {UsersPub, UsersSub} = presence_serv:presence(ExchangeName),
+            {UsersPub, UsersSub} = presence_serv:presence(Channel),
             self() ! {presence_response, jsx:encode([{<<"publishers">>, UsersPub},
                                                      {<<"subscribers">>, UsersSub},
-                                                     {<<"exchange">>, ExchangeName}
+                                                     {<<"publisher">>, Channel}
                                                     ])}
     end,
     State;
@@ -126,7 +126,7 @@ process_message([{<<"authenticate">>, AssumedUserId},{<<"token">>, Token}], Stat
                                  end,
             State#state{user_id = UserID, user_data = UserData};
         _ -> self() ! {just_send, <<"Authentication error: Bad response from server">>},
-            State
+             State
     end;
 
 process_message(_, State) ->

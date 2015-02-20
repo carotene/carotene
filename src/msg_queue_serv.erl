@@ -34,7 +34,7 @@ handle_info({'DOWN', _Ref, process, _Pid, _}, State) ->
     {stop, normal, State};
 
 handle_info({received_message, Msg, exchange, Exchange}, State = #state{reply_pid = ReplyPid}) ->
-    ReplyPid ! {received_message, Msg, exchange, Exchange},
+    ReplyPid ! {received_message, Msg},
     {noreply, State};
 
 handle_info(shutdown, State) ->
