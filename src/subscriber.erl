@@ -93,4 +93,4 @@ ask_authentication(UserId, AuthConfig, Channel) ->
 subscribe(Channel) ->
     {_BrokerModule, Broker} = broker_sup:get_broker(),
     {ok, Subscriber} = gen_server:call(Broker, start_subscriber),
-    ok = gen_server:call(Subscriber, {subscribe, Channel}).
+    ok = gen_server:cast(Subscriber, {subscribe, Channel, from, self()}).

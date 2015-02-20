@@ -22,19 +22,12 @@ handle_cast(_Message, State) ->
     {noreply, State}.
 
 handle_info({start_broker, Sup}, State = #state{supervisor = Sup}) ->
-    %TODO: monitor broker instead of making it permanent so we update the ref
-    {ok, _} = supervisor:start_child(Sup, {broker,
-         {broker_sup, start_link, []},
-          permanent,
-          infinity,
-          worker,
-          [broker_sup]}),
 
     Dispatch = cowboy_router:compile([
         {'_', [
-            {"/api/exchanges/[:exchange_name/]", api_exchanges_handler, []},
-            {"/api/exchanges/:exchange_name/messages", api_messages_handler, []},
-            {"/api/exchanges/:exchange_name/presence", api_presence_handler, []},
+            {"/api/channels/[:channel/]", api_channels_handler, []},
+            {"/api/channels/:channel_name/messages", api_messages_handler, []},
+            {"/api/channels/:channel_name/presence", api_presence_handler, []},
             {"/websocket", ws_handler, []}
         ]}
     ]),

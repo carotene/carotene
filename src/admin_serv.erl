@@ -7,7 +7,7 @@
 -export([init/1, terminate/2, code_change/3, handle_call/3,
          handle_cast/2, handle_info/2]).
 
--record(state, {exchanges, queues}).
+-record(state, {subscribers, broker}).
 
 start_link() ->
     Opts = [],
@@ -17,37 +17,30 @@ stop(Pid) ->
     gen_server:call(Pid, stop, infinity).
 
 init([]) ->
-    State = #state{exchanges = dict:new(), queues = dict:new()},
+    {_BrokerModule, Broker} = broker_sup:get_broker(),
+    State = #state{subscribers = dict:new(), broker = Broker},
     {ok, State}.
 
-handle_call({publish, {exchange_name, ExchangeName}, {message, Message}}, _From, State=#state{exchanges=Exs}) ->
+handle_call({publish, {channel, Channel}, {message, Message}}, _From, State = #state{broker = Broker}) ->
     Payload = jsx:encode([{<<"message">>, Message},
-                          {<<"exchange">>, ExchangeName}, 
+                          {<<"channel">>, Channel}, 
                           {<<"from_server">>, <<"true">>}
                          ]),
-    NewExs = case dict:find(ExchangeName, Exs) of
-                 error -> {BrokerModule, Broker} = broker_sup:get_broker(),
-                          {ok, Exchange} = apply(BrokerModule, start_exchange, [Broker]),
-                          ok = apply(BrokerModule, declare_exchange, [Exchange, {ExchangeName, <<"fanout">>}]),
-                          gen_server:call(Exchange, {publish, Payload}),
-                          dict:store(ExchangeName, Exchange, Exs);
-                 {ok, Exchange} -> gen_server:call(Exchange, {publish,  Payload}),
-                                   Exs
-             end,
+    gen_server:cast(Broker, {publish, Payload, channel, Channel}),
 
-    {reply, ok, State#state{exchanges = NewExs}};
+    {reply, ok, State};
 
-handle_call({subscribe, {exchange_name, ExchangeName}}, _From, State=#state{queues=Qs}) ->
-    subscribe(ExchangeName),
-    NewQs = case lists:member(ExchangeName, Qs) of
-                true -> Qs;
-                false -> lists:append(ExchangeName, Qs)
+handle_call({subscribe, {channel, Channel}}, _From, State=#state{subscribers=Subs, broker = Broker}) ->
+    subscribe(Channel, Broker),
+    NewSubs = case lists:member(Channel, Subs) of
+                true -> Subs;
+                false -> lists:append(Channel, Subs)
             end,
-    {reply, ok, State#state{queues = NewQs}};
+    {reply, ok, State#state{subscribers = NewSubs}};
 
-handle_call(get_subscribed, _From, State=#state{queues=Qs}) ->
-    Exchanges = dict:fetch_keys(Qs),
-    {reply, {ok, Exchanges}, State};
+handle_call(get_subscribed, _From, State=#state{subscribers=Subs}) ->
+    Channels = dict:fetch_keys(Subs),
+    {reply, {ok, Channels}, State};
 
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State};
@@ -58,9 +51,9 @@ handle_call(_Request, _From, State) ->
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
-handle_info({received_message, Msg, exchange, ExchangeName}, State) ->
+handle_info({received_message, Msg, channel, Channel}, State) ->
     {ok, Url} = application:get_env(carotene, subscribe_url),
-    httpc:request(post, {Url, [], "application/x-www-form-urlencoded", "nmessage="++binary_to_list(Msg)++"&exchange="++binary_to_list(ExchangeName)}, [], []),
+    httpc:request(post, {Url, [], "application/x-www-form-urlencoded", "nmessage="++binary_to_list(Msg)++"&channel="++binary_to_list(Channel)}, [], []),
     {noreply, State};
 
 handle_info(stop, State) ->
@@ -75,10 +68,7 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
-subscribe(ExchangeName) ->
+subscribe(Channel, Broker) ->
     {_BrokerModule, Broker} = broker_sup:get_broker(),
-    % TODO: This is particular to rabbitmq
-    {ok, QueueServer} = gen_server:call(Broker, start_queue),
-    {ok, Queue} = gen_server:call(QueueServer, {declare_queue}),
-    ok = gen_server:call(QueueServer, {queue_bind, Queue, ExchangeName}),
-    ok = gen_server:call(QueueServer, {consume, Queue, self()}).
+    {ok, Subscriber} = gen_server:call(Broker, start_subscriber),
+    ok = gen_server:cast(Subscriber, {subscribe, Channel, from, self()}).

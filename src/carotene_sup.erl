@@ -21,6 +21,13 @@ start_link() ->
 
 init([]) ->
     {ok, { {one_for_one, 5, 10}, [
+                                  {broker_sup,
+                                   {broker_sup, start_link, []},
+                                   permanent,
+                                   infinity,
+                                   worker,
+                                   [broker_sup]
+                                  },
                                   {http_initializer,
                                    {http_initializer, start_link, [self()]},
                                    permanent,
@@ -37,14 +44,14 @@ init([]) ->
                                   },
                                   {publisher_sup,
                                    {publisher_sup, start_link, []},
-                                   permanent,
+                                   temporary,
                                    infinity,
                                    supervisor,
                                    [publisher_sup] 
                                   },
                                   {subscriber_sup,
                                    {subscriber_sup, start_link, []},
-                                   permanent,
+                                   temporary,
                                    infinity,
                                    supervisor,
                                    [subscriber_sup] 

@@ -3,7 +3,7 @@
 -behaviour(supervisor).
 
 %% API
--export([start_link/0, presence/1]).
+-export([start_link/0]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -28,14 +28,3 @@ init([]) ->
               worker,
               [mgs_queue_serv] 
              } ]} }.
-
-presence(ExchangeName) ->
-    Children = supervisor:which_children(?MODULE),
-    % FIXME: this is very wrong, very slow and broken, but is a first version
-    MaybeUsers = lists:map(fun({_, ChildPid, _, _}) ->
-                      {ok, MaybeUser} = gen_server:call(ChildPid, {presence, ExchangeName}),
-                      MaybeUser
-              end, Children),
-    lists:usort(lists:filter(fun(MaybeUserId) ->
-                         false /= MaybeUserId
-                 end, MaybeUsers)).

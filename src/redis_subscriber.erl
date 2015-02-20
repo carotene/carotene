@@ -30,13 +30,14 @@ handle_info({message, Msg}, #state{channel = Channel, reply_pid = ReplyPid} = St
 handle_info(shutdown, State) ->
     {stop, normal, State}.
 
-handle_call({subscribe, Channel}, {ReplyTo, _}, State = #state{client = Client}) ->
-    erlang:monitor(process, ReplyTo),
-    gen_server:cast(Client, {subscribe, [Channel], self()}),
-    {reply, ok, State#state{channel = Channel, reply_pid = ReplyTo}};
 
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State}.
+
+handle_cast({subscribe, Channel, from, ReplyTo}, State = #state{client = Client}) ->
+    erlang:monitor(process, ReplyTo),
+    gen_server:cast(Client, {subscribe, [Channel], self()}),
+    {noreply, State#state{channel = Channel, reply_pid = ReplyTo}};
 
 handle_cast(_Message, State) ->
     {noreply, State}.
