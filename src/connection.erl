@@ -119,16 +119,16 @@ process_message([{<<"authenticate">>, AssumedUserId}, {<<"token">>, Token}], Sta
     {ok, AuthenticateUrl} = application:get_env(carotene, authenticate_url),
     case httpc:request(post, {AuthenticateUrl, [], "application/x-www-form-urlencoded", "user_id="++binary_to_list(AssumedUserId)++"&token="++binary_to_list(Token)}, [], []) of
         {ok, {{_Version, 200, _ReasonPhrase}, _Headers, Body}} -> 
-            AuthResult = jsx:decode(binary:list_to_bin(Body)),
-            {UserID, UserData} = case AuthResult of
-                                     % TODO: Can return in different order
+            {UserId, UserData} = try lists:keysort(1, jsx:decode(binary:list_to_bin(Body))) of 
                                      [{<<"authenticated">>, true}, {<<"user_data">>, ResUserData}] ->
                                          self() ! {just_send, <<"Authenticated">>},
                                          {AssumedUserId, ResUserData};
                                      _ -> self() ! {just_send, <<"Authentication failed">>},
                                           {undefined, undefined}
+                                 catch _:_ ->
+                                           {undefined, undefined}
                                  end,
-            State#state{user_id = UserID, user_data = UserData};
+            State#state{user_id = UserId, user_data = UserData};
         _ -> self() ! {just_send, <<"Authentication error: Bad response from server">>},
              State
     end;
