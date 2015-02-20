@@ -4,7 +4,7 @@
 -export([start_link/1, start/1, stop/1]).
 -export([init/1, handle_call/3, handle_cast/2, terminate/2, handle_info/2, code_change/3]).
 
--record(state, {client, subclient, supervisor, queue_supervisor, smart_sub}).
+-record(state, {client, subclient, supervisor, redis_subscriber_supervisor, smart_sub}).
 
 start_link(Sup) ->
     Opts = [],
@@ -21,27 +21,25 @@ init([Sup]) ->
     {ok, Client} = eredis:start_link(),
     {ok, SubClient} = eredis_sub:start_link(),
     {ok, SmartSubClient} = eredis_smart_sub:start_link(SubClient),
-    self() ! {start_redis_queue_sup, SmartSubClient},
-
+    self() ! {start_redis_subscriber_sup, SmartSubClient},
     {ok, #state{client = Client, supervisor = Sup}}.
 
-handle_info({start_redis_queue_sup, SmartSubClient}, State = #state{supervisor = Sup}) ->
-    io:format("go for this~n"),
-    {ok, QueueSup} = supervisor:start_child(Sup, {redis_queue_sup,
-          {redis_queue_sup, start_link, [SmartSubClient]},
+handle_info({start_redis_subscriber_sup, SmartSubClient}, State = #state{supervisor = Sup}) ->
+    {ok, SubscriberSup} = supervisor:start_child(Sup, {redis_subscriber_sup,
+          {redis_subscriber_sup, start_link, [SmartSubClient]},
           permanent,
           infinity,
           supervisor,
-          [redis_queue_sup]}),
-    {noreply, State#state{queue_supervisor = QueueSup}};
+          [redis_subscriber_sup]}),
+    {noreply, State#state{redis_subscriber_supervisor = SubscriberSup}};
 
 handle_info(shutdown, State) ->
     {stop, normal, State}.
 
-handle_call(start_subscriber, _From, State = #state{queue_supervisor = QueueSup}) ->
-    {ok, Queue} = supervisor:start_child(QueueSup, []),
+handle_call(start_subscriber, _From, State = #state{redis_subscriber_supervisor = SubscriberSup}) ->
+    {ok, Subscriber} = supervisor:start_child(SubscriberSup, []),
 
-    {reply, {ok, Queue}, State};
+    {reply, {ok, Subscriber}, State};
 
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State}.

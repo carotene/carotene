@@ -1,4 +1,4 @@
--module(redis_queue).
+-module(redis_subscriber).
 
 -behaviour(gen_server).
 -export([start_link/1, start/1, stop/1]).
@@ -20,7 +20,7 @@ stop(Pid) ->
 init([Client]) ->
     {ok, #state{client = Client}}.
 
-handle_info({'DOWN', _Ref, process, Pid, _}, State) ->
+handle_info({'DOWN', _Ref, process, _Pid, _}, State) ->
     {stop, normal, State};
 
 handle_info({message, Msg}, #state{channel = Channel, reply_pid = ReplyPid} = State) ->
@@ -41,8 +41,7 @@ handle_call(stop, _From, State) ->
 handle_cast(_Message, State) ->
     {noreply, State}.
 
-terminate(_Reason, State = #state{channel = Channel, client = Client}) ->
-    %gen_server:cast(Client, {unsubscribe, [Channel], self()}),
+terminate(_Reason, _State) ->
     ok.
 
 code_change(_OldVsn, State, _Extra) ->

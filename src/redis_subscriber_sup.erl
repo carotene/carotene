@@ -1,4 +1,4 @@
--module(redis_queue_sup).
+-module(redis_subscriber_sup).
 
 -behaviour(supervisor).
 
@@ -21,10 +21,10 @@ start_link(Client) ->
 
 init([Client]) ->
     {ok, { {simple_one_for_one, 5, 10}, [
-             {redis_queue,
-              {redis_queue, start_link, [Client]},
+             {redis_subscriber,
+              {redis_subscriber, start_link, [Client]},
               temporary,
               infinity,
               worker,
-              [redis_queue] 
+              [redis_subscriber] 
              } ]} }.
