@@ -28,9 +28,11 @@ init([From]) ->
     {ok, #state{exchanges=dict:new(), queues=dict:new(), transport=From}}.
 
 handle_cast({process_message, Message}, State) ->
-    % TODO: check it is json
-    Msg = jsx:decode(Message),
-    StateNew = process_message(Msg, State),
+    StateNew = try jsx:decode(Message) of
+                   Msg -> process_message(Msg, State)
+               catch _:_ ->
+                         State
+               end,
     {noreply, StateNew};
 
 handle_cast(_Message, State) ->

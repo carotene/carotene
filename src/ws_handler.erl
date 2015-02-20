@@ -16,6 +16,6 @@ websocket_handle(_Data, Req, State) ->
 
 websocket_info({text, Msg}, Req, State) ->
     {reply, {text, Msg}, Req, State};
-websocket_info(Info, Req, State) ->
+websocket_info(_Info, Req, State) ->
     {ok, Req, State}.
 
