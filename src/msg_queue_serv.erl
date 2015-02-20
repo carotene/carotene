@@ -27,7 +27,7 @@ init([ExchangeName, UserId, ReplyPid]) ->
     % TODO: things can go wrong here with authorization, but lets advance first
     erlang:monitor(process, ReplyPid),
     ok = maybe_consume(UserId, AuthConfig, ExchangeName),
-    gen_server:cast(presence_serv, {subscribe_exchange, UserId, ExchangeName, self()}),
+    gen_server:cast(presence_serv, {subscribe, UserId, ExchangeName, self()}),
     {ok, #state{reply_pid = ReplyPid, exchange_name = ExchangeName, user_id = UserId}}.
 
 handle_info({'DOWN', _Ref, process, _Pid, _}, State) ->
@@ -47,7 +47,7 @@ handle_cast(_Message, State) ->
     {noreply, State}.
 
 terminate(_Reason, #state{exchange_name=ExchangeName, user_id=UserId}) ->
-    gen_server:cast(presence_serv, {unsubscribe_exchange, UserId, ExchangeName, self()}),
+    gen_server:cast(presence_serv, {unsubscribe, UserId, ExchangeName, self()}),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->

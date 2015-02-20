@@ -4,12 +4,12 @@
 
 -export([start_link/0]).
 -export([stop/1]).
--export([presence/1, get_exchanges/1]).
+-export([presence/1, get_channels/1]).
 -export([init/1, terminate/2, code_change/3, handle_call/3,
          handle_cast/2, handle_info/2]).
 
 -record(state, {refs_sub}).
--record(subscribers, {pid, exchange_name, user_id}).
+-record(subscribers, {pid, channel, user_id}).
 
 
 start_link() ->
@@ -46,8 +46,8 @@ handle_info({'DOWN', _Ref, process, Pid, _}, State=#state{refs_sub=RefsSub}) ->
 handle_info(shutdown, State) ->
     {stop, shutdown, State}.
 
-handle_call({presence, ExchangeName}, _From, State) ->
-    PatternSub = #subscribers{_ = '_', exchange_name = ExchangeName},
+handle_call({presence, Channel}, _From, State) ->
+    PatternSub = #subscribers{_ = '_', channel = Channel},
     FSub = fun() ->
                 Res = mnesia:match_object(PatternSub),
                 [UserId || #subscribers{user_id=UserId} <- Res]
@@ -57,29 +57,29 @@ handle_call({presence, ExchangeName}, _From, State) ->
 
     {reply, {UsersSub}, State};
 
-handle_call({get_exchanges, UserId}, _From, State) ->
+handle_call({get_channels, UserId}, _From, State) ->
     PatternSub = #subscribers{_ = '_', user_id = UserId},
     FSub = fun() ->
                 Res = mnesia:match_object(PatternSub),
-                [ExchangeName || #subscribers{exchange_name=ExchangeName} <- Res]
+                [Channel || #subscribers{channel=Channel} <- Res]
         end,
-    ExchangesDupSub =mnesia:activity(transaction, FSub),
-    ExchangesSub = sets:to_list(sets:from_list(ExchangesDupSub)),
-    {reply, {ExchangesSub}, State}.
+    ChannelsDup =mnesia:activity(transaction, FSub),
+    Channels = sets:to_list(sets:from_list(ChannelsDup)),
+    {reply, {Channels}, State}.
  
-handle_cast({subscribe_exchange, UserId, ExchangeName, From}, State=#state{refs_sub=Refs}) ->
+handle_cast({subscribe, UserId, Channel, From}, State=#state{refs_sub=Refs}) ->
     Ref = erlang:monitor(process, From),
     NewRefs = dict:store(From, Ref, Refs),
     F = fun() ->
                 mnesia:write(#subscribers{pid=From,
-                                          exchange_name=ExchangeName,
+                                          channel=Channel,
                                           user_id=UserId})
         end,
     mnesia:activity(transaction, F),
 
     {noreply, State#state{refs_sub=NewRefs}};
 
-handle_cast({unsubscribe_exchange, _UserId, _ExchangeName, From}, State=#state{refs_sub=Refs}) ->
+handle_cast({unsubscribe, _UserId, _Channel, From}, State=#state{refs_sub=Refs}) ->
     NewRefs = case dict:find(From, Refs) of
         error -> Refs;
         {ok, Ref} -> erlang:demonitor(Ref, [flush]),
@@ -95,8 +95,8 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
-presence(ExchangeName) ->
-    gen_server:call(?MODULE, {presence, ExchangeName}).
+presence(Channel) ->
+    gen_server:call(?MODULE, {presence, Channel}).
 %
-get_exchanges(UserId) ->
-    gen_server:call(?MODULE, {get_exchanges, UserId}).
+get_channels(UserId) ->
+    gen_server:call(?MODULE, {get_channels, UserId}).
