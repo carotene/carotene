@@ -29,7 +29,8 @@ init([From]) ->
 
 handle_cast({process_message, Message}, State) ->
     StateNew = try jsx:decode(Message) of
-                   Msg -> process_message(Msg, State)
+                   Msg -> 
+                       process_message(Msg, State)
                catch _:_ ->
                          State
                end,
@@ -84,7 +85,7 @@ process_message([{<<"joinchannel">>, Channel}], State = #state{publishers=Pubs, 
                   {ok, _} -> Pubs
               end,
     NewSubs = case dict:find(Channel, Subs) of
-                  error -> dict:store(Channel, SubsriberPid, Subs);
+                  error -> dict:store(Channel, SubscriberPid, Subs);
                   {ok, _} -> Subs
               end,
     State#state{publishers = NewPubs, subscribers = NewSubs};
@@ -93,7 +94,7 @@ process_message([{<<"send">>, Message}, {<<"channel">>, Channel}], State = #stat
     % TODO: make robust
     {ok, PublisherPid} = dict:find(Channel, Pubs),
     gen_server:call(PublisherPid, {publish, jsx:encode([{<<"message">>, Message},
-                                                        {<<"publisher">>, Channel}, 
+                                                        {<<"channel">>, Channel}, 
                                                         {<<"user_id">>, UserId},
                                                         {<<"user_data">>, UserData}
                                                        ])}),
@@ -129,6 +130,6 @@ process_message([{<<"authenticate">>, AssumedUserId},{<<"token">>, Token}], Stat
              State
     end;
 
-process_message(_, State) ->
-    io:format("unknown message~n"),
+process_message(Msg, State) ->
+    io:format("unknown message ~p ~n", [Msg]),
     State .
