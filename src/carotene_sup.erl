@@ -28,6 +28,13 @@ init([]) ->
                                    worker,
                                    [http_initializer] 
                                   },
+                                  {connection_sup,
+                                   {connection_sup, start_link, []},
+                                   permanent,
+                                   infinity,
+                                   supervisor,
+                                   [connection_sup] 
+                                  },
                                   {msg_exchange_sup,
                                    {msg_exchange_sup, start_link, []},
                                    permanent,
