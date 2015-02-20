@@ -30,7 +30,7 @@ init([From]) ->
 handle_cast({process_message, Message}, State) ->
     StateNew = try jsx:decode(Message) of
                    Msg -> 
-                       process_message(Msg, State)
+                       process_message(lists:keysort(1, Msg), State)
                catch _:_ ->
                          State
                end,
@@ -90,14 +90,17 @@ process_message([{<<"joinchannel">>, Channel}], State = #state{publishers=Pubs, 
               end,
     State#state{publishers = NewPubs, subscribers = NewSubs};
 
-process_message([{<<"send">>, Message}, {<<"channel">>, Channel}], State = #state{publishers=Pubs, user_id=UserId, user_data=UserData}) ->
-    % TODO: make robust
-    {ok, PublisherPid} = dict:find(Channel, Pubs),
-    gen_server:call(PublisherPid, {publish, jsx:encode([{<<"message">>, Message},
-                                                        {<<"channel">>, Channel}, 
-                                                        {<<"user_id">>, UserId},
-                                                        {<<"user_data">>, UserData}
-                                                       ])}),
+process_message([{<<"channel">>, Channel}, {<<"send">>, Message}], State = #state{publishers=Pubs, user_id=UserId, user_data=UserData}) ->
+    case dict:find(Channel, Pubs) of
+        {ok, PublisherPid} -> 
+            gen_server:call(PublisherPid, {publish,
+                                           jsx:encode([{<<"message">>, Message},
+                                                       {<<"channel">>, Channel},
+                                                       {<<"user_id">>, UserId},
+                                                       {<<"user_data">>, UserData}
+                                                      ])});
+        error -> publisher_not_found
+    end,
     State;
 
 process_message([{<<"presence">>, Channel}], State = #state{publishers=Pubs}) ->
@@ -112,7 +115,7 @@ process_message([{<<"presence">>, Channel}], State = #state{publishers=Pubs}) ->
     end,
     State;
 
-process_message([{<<"authenticate">>, AssumedUserId},{<<"token">>, Token}], State ) ->
+process_message([{<<"authenticate">>, AssumedUserId}, {<<"token">>, Token}], State ) ->
     {ok, AuthenticateUrl} = application:get_env(carotene, authenticate_url),
     case httpc:request(post, {AuthenticateUrl, [], "application/x-www-form-urlencoded", "user_id="++binary_to_list(AssumedUserId)++"&token="++binary_to_list(Token)}, [], []) of
         {ok, {{_Version, 200, _ReasonPhrase}, _Headers, Body}} -> 
