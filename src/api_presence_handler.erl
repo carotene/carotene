@@ -18,11 +18,11 @@ content_types_provided(Req, State) ->
       {{<<"application">>, <<"json">>, []}, presence_to_json}
      ], Req, State}.
 
-presence_to_json(Req, ExchangeName) ->
-    {_, UsersSub} = presence_serv:presence(ExchangeName),
+presence_to_json(Req, Channel) ->
+    {_, UsersSub} = presence_serv:presence(Channel),
     Body = jsx:encode(UsersSub),
-    {Body, Req, ExchangeName}.
+    {Body, Req, Channel}.
 
 resource_exists(Req, _State) ->
-    ExchangeName = cowboy_req:binding(exchange_name, Req),
-    {true, Req, ExchangeName}.
+    Channel = cowboy_req:binding(channel, Req),
+    {true, Req, Channel}.

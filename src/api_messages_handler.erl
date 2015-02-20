@@ -5,7 +5,7 @@
 %-export([content_types_provided/2]).
 -export([content_types_accepted/2]).
 %-export([resource_exists/2]).
--export([publish_in_exchange/3]).
+-export([publish_in_channel/3]).
 -export([from_json/2]).
 
 init(Req, Opts) ->
@@ -16,7 +16,7 @@ allowed_methods(Req, State) ->
 
 %content_types_provided(Req, State) ->
 %    {[
-%      {{<<"application">>, <<"json">>, []}, exchange_to_json}
+%      {{<<"application">>, <<"json">>, []}, channel_to_json}
 %     ], Req, State}.
 
 content_types_accepted(Req, State) ->
@@ -25,12 +25,11 @@ content_types_accepted(Req, State) ->
     ], Req, State}.
 
 from_json(Req, State) ->
-    ExchangeName = cowboy_req:binding(exchange_name, Req),
-    publish_in_exchange(ExchangeName, Req, State).
+    Channel = cowboy_req:binding(channel, Req),
+    publish_in_channel(channel, Req, State).
 
-publish_in_exchange(ExchangeName, Req, State) ->
+publish_in_channel(Channel, Req, State) ->
     {ok, PostParams, Req2} = cowboy_req:body_qs(Req),
     {_, Message} = lists:keyfind(<<"message">>, 1, PostParams),
-    io:format("message '~p' to exchange '~p'~n", [Message, ExchangeName]),
-    gen_server:call(admin_serv, {publish, {exchange_name, ExchangeName}, {message, Message}}),
+    gen_server:call(admin_serv, {publish, {channel, Channel}, {message, Message}}),
     {true, Req2, State}.

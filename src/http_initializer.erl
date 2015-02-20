@@ -26,8 +26,8 @@ handle_info({start_broker, Sup}, State = #state{supervisor = Sup}) ->
     Dispatch = cowboy_router:compile([
         {'_', [
             {"/api/channels/[:channel/]", api_channels_handler, []},
-            {"/api/channels/:channel_name/messages", api_messages_handler, []},
-            {"/api/channels/:channel_name/presence", api_presence_handler, []},
+            {"/api/channels/:channel/messages", api_messages_handler, []},
+            {"/api/channels/:channel/presence", api_presence_handler, []},
             {"/websocket", ws_handler, []}
         ]}
     ]),
