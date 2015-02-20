@@ -42,12 +42,12 @@ init([]) ->
                                    supervisor,
                                    [publisher_sup] 
                                   },
-                                  {msg_queue_sup,
-                                   {msg_queue_sup, start_link, []},
+                                  {subscriber_sup,
+                                   {subscriber_sup, start_link, []},
                                    permanent,
                                    infinity,
                                    supervisor,
-                                   [msg_queue_sup] 
+                                   [subscriber_sup] 
                                   },
                                   {presence_serv,
                                    {presence_serv, start_link, []},

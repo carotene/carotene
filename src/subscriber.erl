@@ -1,4 +1,4 @@
--module(msg_queue_serv).
+-module(subscriber).
 
 -behaviour(gen_server).
 
@@ -7,31 +7,31 @@
 -export([start/3, start_link/3]).
 -export([stop/1]).
 
--record(state, {exchange_name, reply_pid, auth_config, already_auth, user_id, queue}).
+-record(state, {channel, reply_pid, auth_config, already_auth, user_id}).
 
-start_link(ExchangeName, UserId, ReplyPid) ->
+start_link(Channel, UserId, ReplyPid) ->
     Opts = [],
-    gen_server:start_link(?MODULE, [ExchangeName, UserId, ReplyPid], Opts).
+    gen_server:start_link(?MODULE, [Channel, UserId, ReplyPid], Opts).
 
-start(ExchangeName, UserId, ReplyPid) ->
+start(Channel, UserId, ReplyPid) ->
     Opts = [],
-    gen_server:start(?MODULE, [ExchangeName, UserId, ReplyPid], Opts).
+    gen_server:start(?MODULE, [Channel, UserId, ReplyPid], Opts).
 
 stop(Pid) ->
     gen_server:call(Pid, stop, infinity).
 
-init([ExchangeName, UserId, ReplyPid]) ->
+init([Channel, UserId, ReplyPid]) ->
     {ok, AuthConfig} = application:get_env(carotene, subscribe_auth),
-    % TODO: things can go wrong here with authorization, but lets advance first
     erlang:monitor(process, ReplyPid),
-    ok = maybe_consume(UserId, AuthConfig, ExchangeName),
-    gen_server:cast(presence_serv, {subscribe, UserId, ExchangeName, self()}),
-    {ok, #state{reply_pid = ReplyPid, exchange_name = ExchangeName, user_id = UserId}}.
+    % TODO: things can go wrong here with authorization, but lets advance first
+    ok = maybe_consume(UserId, AuthConfig, Channel),
+    gen_server:cast(presence_serv, {subscribe, UserId, Channel, self()}),
+    {ok, #state{reply_pid = ReplyPid, channel = Channel, user_id = UserId}}.
 
 handle_info({'DOWN', _Ref, process, _Pid, _}, State) ->
     {stop, normal, State};
 
-handle_info({received_message, Msg, exchange, _Exchange}, State = #state{reply_pid = ReplyPid}) ->
+handle_info({received_message, Msg, channel, _Channel}, State = #state{reply_pid = ReplyPid}) ->
     ReplyPid ! {received_message, Msg},
     {noreply, State};
 
@@ -44,21 +44,21 @@ handle_call(stop, _From, State) ->
 handle_cast(_Message, State) ->
     {noreply, State}.
 
-terminate(_Reason, #state{exchange_name=ExchangeName, user_id=UserId}) ->
-    gen_server:cast(presence_serv, {unsubscribe, UserId, ExchangeName, self()}),
+terminate(_Reason, #state{channel = Channel, user_id = UserId}) ->
+    gen_server:cast(presence_serv, {unsubscribe, UserId, Channel, self()}),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->
     State.
 
 %% Internal
-maybe_consume(UserId, AuthConfig, ExchangeName) ->
-    case can_subscribe(UserId, AuthConfig, ExchangeName) of
-        ok -> subscribe(ExchangeName);
+maybe_consume(UserId, AuthConfig, Channel) ->
+    case can_subscribe(UserId, AuthConfig, Channel) of
+        ok -> subscribe(Channel);
         _ -> error
     end.
 
-can_subscribe(UserId, AuthConfig, ExchangeName) ->
+can_subscribe(UserId, AuthConfig, Channel) ->
     case lists:keyfind(enabled, 1, AuthConfig) of
         false -> ok;
         {enabled, false} -> ok;
@@ -69,7 +69,7 @@ can_subscribe(UserId, AuthConfig, ExchangeName) ->
                                                     undefined -> needs_authentication;
                                                     _ -> ok
                                                 end;
-                               {level, ask} -> case ask_authentication(UserId, AuthConfig, ExchangeName) of
+                               {level, ask} -> case ask_authentication(UserId, AuthConfig, Channel) of
                                                    true -> ok;
                                                    Error -> Error
                                                end
@@ -77,11 +77,11 @@ can_subscribe(UserId, AuthConfig, ExchangeName) ->
         _ -> ok
     end.
 
-ask_authentication(UserId, AuthConfig, ExchangeName) ->
+ask_authentication(UserId, AuthConfig, Channel) ->
     case lists:keyfind(authorization_url, 1, AuthConfig) of
         false -> bad_configuration;
         {authorization_url, AuthorizeUrl} ->
-            {ok, {{_Version, 200, _ReasonPhrase}, _Headers, Body}} = httpc:request(post, {AuthorizeUrl, [], "application/x-www-form-urlencoded", "user_id="++binary_to_list(UserId)++"&exchange="++binary_to_list(ExchangeName)}, [], []),
+            {ok, {{_Version, 200, _ReasonPhrase}, _Headers, Body}} = httpc:request(post, {AuthorizeUrl, [], "application/x-www-form-urlencoded", "user_id="++binary_to_list(UserId)++"&channel="++binary_to_list(Channel)}, [], []),
             % TODO: This can crash
             case jsx:decode(binary:list_to_bin(Body)) of
                 [{<<"authorized">>, <<"true">>}] -> true;
@@ -90,8 +90,7 @@ ask_authentication(UserId, AuthConfig, ExchangeName) ->
             end
     end.
 
-subscribe(ExchangeName) ->
+subscribe(Channel) ->
     {_BrokerModule, Broker} = broker_sup:get_broker(),
-    % TODO: This is particular to rabbitmq
-    {ok, QueueServer} = gen_server:call(Broker, start_queue),
-    ok = gen_server:call(QueueServer, {subscribe, ExchangeName}).
+    {ok, Subscriber} = gen_server:call(Broker, start_subscriber),
+    ok = gen_server:call(Subscriber, {subscribe, Channel}).

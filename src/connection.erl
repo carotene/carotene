@@ -78,7 +78,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%--------------------------------------------------------------------
 
 process_message([{<<"subscribe">>, Channel}], State = #state{subscribers=Subs, user_id=UserId}) ->
-    {ok, SubscriberPid} = supervisor:start_child(msg_queue_sup, [Channel, UserId, self()]),
+    {ok, SubscriberPid} = supervisor:start_child(subscriber_sup, [Channel, UserId, self()]),
     NewSubs = case dict:find(Channel, Subs) of
                   error -> dict:store(Channel, SubscriberPid, Subs);
                   {ok, _} -> Subs

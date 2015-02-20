@@ -1,4 +1,4 @@
--module(msg_queue_sup).
+-module(subscriber_sup).
 
 -behaviour(supervisor).
 
@@ -21,8 +21,8 @@ start_link() ->
 
 init([]) ->
     {ok, { {simple_one_for_one, 5, 10}, [
-             {broker,
-              {msg_queue_serv, start_link, []},
+             {subscriber,
+              {subscriber, start_link, []},
               temporary,
               infinity,
               worker,

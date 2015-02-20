@@ -26,6 +26,7 @@ init([Sup]) ->
     {ok, #state{client = Client, supervisor = Sup}}.
 
 handle_info({start_redis_queue_sup, SmartSubClient}, State = #state{supervisor = Sup}) ->
+    io:format("go for this~n"),
     {ok, QueueSup} = supervisor:start_child(Sup, {redis_queue_sup,
           {redis_queue_sup, start_link, [SmartSubClient]},
           permanent,
@@ -37,7 +38,7 @@ handle_info({start_redis_queue_sup, SmartSubClient}, State = #state{supervisor =
 handle_info(shutdown, State) ->
     {stop, normal, State}.
 
-handle_call(start_queue, _From, State = #state{queue_supervisor = QueueSup}) ->
+handle_call(start_subscriber, _From, State = #state{queue_supervisor = QueueSup}) ->
     {ok, Queue} = supervisor:start_child(QueueSup, []),
 
     {reply, {ok, Queue}, State};
