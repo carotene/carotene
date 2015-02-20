@@ -33,7 +33,7 @@ init([ExchangeName, UserId, ReplyPid]) ->
 handle_info({'DOWN', _Ref, process, _Pid, _}, State) ->
     {stop, normal, State};
 
-handle_info({received_message, Msg, exchange, Exchange}, State = #state{reply_pid = ReplyPid}) ->
+handle_info({received_message, Msg, exchange, _Exchange}, State = #state{reply_pid = ReplyPid}) ->
     ReplyPid ! {received_message, Msg},
     {noreply, State};
 
@@ -84,6 +84,7 @@ ask_authentication(UserId, AuthConfig, ExchangeName) ->
         false -> bad_configuration;
         {authorization_url, AuthorizeUrl} ->
             {ok, {{_Version, 200, _ReasonPhrase}, _Headers, Body}} = httpc:request(post, {AuthorizeUrl, [], "application/x-www-form-urlencoded", "user_id="++binary_to_list(UserId)++"&exchange="++binary_to_list(ExchangeName)}, [], []),
+            % TODO: This can crash
             case jsx:decode(binary:list_to_bin(Body)) of
                 [{<<"authorized">>, <<"true">>}] -> true;
                 [{<<"authorized">>, <<"false">>}] -> no_authorization;

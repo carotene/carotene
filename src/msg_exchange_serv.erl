@@ -26,7 +26,6 @@ init([ExchangeName, UserId, From]) ->
     {BrokerModule, Broker} = broker_sup:get_broker(),
     {ok, Exchange} = apply(BrokerModule, start_exchange, [Broker]),
     ok = apply(BrokerModule, declare_exchange, [Exchange, {ExchangeName, <<"fanout">>}]),
-    gen_server:cast(presence_serv, {join_exchange, UserId, ExchangeName, self()}),
     {ok, AuthConfig} = application:get_env(carotene, publish_auth),
     {ok, #state{user_id = UserId, exchange = Exchange, exchange_name = ExchangeName, broker = Broker, auth_config = AuthConfig, already_auth = false}}.
 
@@ -48,15 +47,13 @@ handle_call({publish, Message}, _From, State = #state{exchange = Exchange, excha
             end
     end;
 
-handle_call(stop, _From, State=#state{exchange_name=ExchangeName, user_id=UserId}) ->
-    gen_server:cast(presence_serv, {leave_exchange, UserId, ExchangeName, self()}),
+handle_call(stop, _From, State) ->
     {stop, normal, ok, State}.
 
 handle_cast(_Message, State) ->
     {noreply, State}.
 
-terminate(_Reason, #state{exchange_name=ExchangeName, user_id=UserId}) ->
-    gen_server:cast(presence_serv, {leave_exchange, UserId, ExchangeName, self()}),
+terminate(_Reason, _State) ->
     ok.
 
 code_change(_OldVsn, State, _Extra) ->
@@ -87,6 +84,7 @@ ask_authentication(UserId, AuthConfig, ExchangeName) ->
         false -> bad_configuration;
         {authorization_url, AuthorizeUrl} ->
             {ok, {{_Version, 200, _ReasonPhrase}, _Headers, Body}} = httpc:request(post, {AuthorizeUrl, [], "application/x-www-form-urlencoded", "user_id="++binary_to_list(UserId)++"&exchange="++binary_to_list(ExchangeName)}, [], []),
+            % TODO: This can crash
             case jsx:decode(binary:list_to_bin(Body)) of
                 [{<<"authorized">>, <<"true">>}] -> true;
                 [{<<"authorized">>, <<"false">>}] -> no_authorization;
