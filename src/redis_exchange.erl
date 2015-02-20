@@ -23,10 +23,14 @@ declare_exchange(ExchangeServ, ExchangeSpecs)->
 init([Client]) ->
     {ok, #state{client = Client}}.
 
+handle_info({'DOWN', _Ref, process, Pid, _}, State) ->
+    {stop, normal, State};
+
 handle_info(shutdown, State) ->
     {stop, normal, State}.
 
-handle_call({declare_exchange, {Exchange, _Type}}, _From, State) ->
+handle_call({declare_exchange, {Exchange, _Type}}, {Pid, _Ref}, State) ->
+    erlang:monitor(process, Pid),
     {reply, ok, State#state{exchange = Exchange}};
 
 handle_call({publish, Message}, _From, State = #state{client = Client, exchange = Exchange}) ->
