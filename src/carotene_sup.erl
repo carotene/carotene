@@ -35,12 +35,12 @@ init([]) ->
                                    supervisor,
                                    [connection_sup] 
                                   },
-                                  {msg_exchange_sup,
-                                   {msg_exchange_sup, start_link, []},
+                                  {publisher_sup,
+                                   {publisher_sup, start_link, []},
                                    permanent,
                                    infinity,
                                    supervisor,
-                                   [msg_exchange_sup] 
+                                   [publisher_sup] 
                                   },
                                   {msg_queue_sup,
                                    {msg_queue_sup, start_link, []},

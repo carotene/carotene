@@ -7,8 +7,6 @@
 -export([start/3, start_link/3]).
 -export([stop/1]).
 
--include_lib("carotene.hrl").
-
 -record(state, {exchange_name, reply_pid, auth_config, already_auth, user_id, queue}).
 
 start_link(ExchangeName, UserId, ReplyPid) ->

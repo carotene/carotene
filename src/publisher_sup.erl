@@ -1,4 +1,4 @@
--module(msg_exchange_sup).
+-module(publisher_sup).
 
 -behaviour(supervisor).
 
@@ -21,10 +21,10 @@ start_link() ->
 
 init([]) ->
     {ok, { {simple_one_for_one, 5, 10}, [
-             {broker,
-              {msg_exchange_serv, start_link, []},
+             {publisher,
+              {publisher, start_link, []},
               temporary,
               infinity,
               worker,
-              [mgs_exchange_serv] 
+              [publisher] 
              } ]} }.

@@ -1,4 +1,4 @@
--module(msg_exchange_serv).
+-module(publisher).
 
 -behaviour(gen_server).
 
@@ -7,41 +7,39 @@
 -export([init/1, terminate/2, code_change/3, handle_call/3,
          handle_cast/2, handle_info/2]).
 
--record(state, {exchange, exchange_name, broker, auth_config, already_auth, user_id}).
+-record(state, {channel, broker, auth_config, already_auth, user_id}).
 
 
-start_link(Exchange, UserId, From) ->
+start_link(Channel, UserId, From) ->
     Opts = [],
-    gen_server:start_link(?MODULE, [Exchange, UserId, From], Opts).
+    gen_server:start_link(?MODULE, [Channel, UserId, From], Opts).
 
-start(Exchange, UserId, From) ->
+start(Channel, UserId, From) ->
     Opts = [],
-    gen_server:start(?MODULE, [Exchange, UserId, From], Opts).
+    gen_server:start(?MODULE, [Channel, UserId, From], Opts).
 
 stop(Pid) ->
     gen_server:call(Pid, stop, infinity).
 
-init([ExchangeName, UserId, From]) ->
+init([Channel, UserId, From]) ->
     erlang:monitor(process, From),
-    {BrokerModule, Broker} = broker_sup:get_broker(),
-    {ok, Exchange} = apply(BrokerModule, start_exchange, [Broker]),
-    ok = apply(BrokerModule, declare_exchange, [Exchange, {ExchangeName, <<"fanout">>}]),
+    {_BrokerModule, Broker} = broker_sup:get_broker(),
     {ok, AuthConfig} = application:get_env(carotene, publish_auth),
-    {ok, #state{user_id = UserId, exchange = Exchange, exchange_name = ExchangeName, broker = Broker, auth_config = AuthConfig, already_auth = false}}.
+    {ok, #state{user_id = UserId, channel = Channel, broker = Broker, auth_config = AuthConfig, already_auth = false}}.
 
 handle_info({'DOWN', _Ref, process, _Pid, _}, State) ->
     {stop, shutdown, State};
 handle_info(shutdown, State) ->
     {stop, shutdown, State}.
 
-handle_call({publish, Message}, _From, State = #state{exchange = Exchange, exchange_name = ExchangeName, auth_config = AuthConfig, user_id = UserId}) ->
+handle_call({publish, Message}, _From, State = #state{broker = Broker, channel = Channel, auth_config = AuthConfig, user_id = UserId}) ->
     case already_auth of
-        true -> ok = gen_server:call(Exchange, {publish,  Message}),
+        true -> ok = gen_server:cast(Broker, {publish,  Message, channel, Channel}),
                 {reply, ok, State};
         _ ->
-            case can_publish(UserId, AuthConfig, ExchangeName) of
+            case can_publish(UserId, AuthConfig, Channel) of
                 ok ->
-                    ok = gen_server:call(Exchange, {publish,  Message}),
+                    ok = gen_server:cast(Broker, {publish,  Message, channel, Channel}),
                     {reply, ok, State#state{already_auth = true}};
                 Error -> {reply, {error, Error}, State}
             end
@@ -60,7 +58,7 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 %% Internal
-can_publish(UserId, AuthConfig, ExchangeName) ->
+can_publish(UserId, AuthConfig, Channel) ->
     case lists:keyfind(enabled, 1, AuthConfig) of
         false -> ok;
         {enabled, false} -> ok;
@@ -71,7 +69,7 @@ can_publish(UserId, AuthConfig, ExchangeName) ->
                                                     undefined -> needs_authentication;
                                                     _ -> ok
                                                 end;
-                               {level, ask} -> case ask_authentication(UserId, AuthConfig, ExchangeName) of
+                               {level, ask} -> case ask_authentication(UserId, AuthConfig, Channel) of
                                                    true -> ok;
                                                    Error -> Error
                                                end
@@ -79,11 +77,11 @@ can_publish(UserId, AuthConfig, ExchangeName) ->
         _ -> ok
     end.
 
-ask_authentication(UserId, AuthConfig, ExchangeName) ->
+ask_authentication(UserId, AuthConfig, Channel) ->
     case lists:keyfind(authorization_url, 1, AuthConfig) of
         false -> bad_configuration;
         {authorization_url, AuthorizeUrl} ->
-            {ok, {{_Version, 200, _ReasonPhrase}, _Headers, Body}} = httpc:request(post, {AuthorizeUrl, [], "application/x-www-form-urlencoded", "user_id="++binary_to_list(UserId)++"&exchange="++binary_to_list(ExchangeName)}, [], []),
+            {ok, {{_Version, 200, _ReasonPhrase}, _Headers, Body}} = httpc:request(post, {AuthorizeUrl, [], "application/x-www-form-urlencoded", "user_id="++binary_to_list(UserId)++"&channel="++binary_to_list(Channel)}, [], []),
             % TODO: This can crash
             case jsx:decode(binary:list_to_bin(Body)) of
                 [{<<"authorized">>, <<"true">>}] -> true;

@@ -96,7 +96,7 @@ process_message([{<<"channel">>, Channel}, {<<"publish">>, Message}], State = #s
                       gen_server:call(PublisherPid, CompleteMessage),
                       Pubs;
                   error -> 
-                      {ok, PublisherPid} = supervisor:start_child(msg_exchange_sup, [Channel, UserId, self()]),
+                      {ok, PublisherPid} = supervisor:start_child(publisher_sup, [Channel, UserId, self()]),
                       gen_server:call(PublisherPid, CompleteMessage),
                       dict:store(Channel, PublisherPid, Pubs)
 
