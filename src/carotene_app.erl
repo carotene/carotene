@@ -4,7 +4,7 @@
 
 -behaviour(application).
 
--export([start/0, stop/0, join_cluster/1]).
+-export([start/0, stop/0, join_cluster/1, cluster_status/0]).
 %% Application callbacks
 -export([start/2, stop/1]).
 
@@ -45,3 +45,6 @@ start() ->
 join_cluster(Node) ->
     net_kernel:connect_node(Node),
     ok.
+
+cluster_status() ->
+    [node()| nodes()].

@@ -53,5 +53,14 @@ maybe_join_cluster(Args, Extra) ->
                         end;
                     false -> io:format("nodename option required (run with -h for help)~n")
                 end;
+        false -> maybe_cluster_status(Args, Extra) 
+    end.
+
+maybe_cluster_status(Args, Extra) ->
+    case lists:member("cluster_status", Extra) of
+        true -> case lists:keyfind(nodename, 1, Args) of 
+                    {nodename, Node} -> io:format("~p ~n", [rpc:call(list_to_atom(Node), carotene_app, cluster_status, [])]);
+                    false -> io:format("nodename option required (run with -h for help)~n")
+                end;
         false -> ok%maybe_cluster_status(Args, Extra) 
     end.
