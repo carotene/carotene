@@ -26,6 +26,12 @@ handle_call(_Request, _From, State) ->
 handle_cast({publish, Message, channel, Channel}, State) ->
     Subs = ets:lookup_element(router_subscribers, Channel, 2),
     broadcast({received_message, Message}, Subs),
+    broadcast_cluster({cluster_publish, Message, channel, Channel}, nodes()),
+    {noreply, State};
+
+handle_cast({cluster_publish, Message, channel, Channel}, State) ->
+    Subs = ets:lookup_element(router_subscribers, Channel, 2),
+    broadcast({received_message, Message}, Subs),
     {noreply, State};
 
 handle_cast({subscribe, Channel, from, ReplyTo}, State) ->
@@ -56,4 +62,10 @@ broadcast(Msg, [Pid|Pids]) ->
     Pid ! Msg,
     broadcast(Msg, Pids);
 broadcast(_, []) ->
+    true.
+
+broadcast_cluster(Msg, [Node|Nodes]) ->
+    gen_server:cast({router, Node}, Msg),
+    broadcast_cluster(Msg, Nodes);
+broadcast_cluster(_, []) ->
     true.
