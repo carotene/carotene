@@ -4,7 +4,7 @@
 
 -behaviour(application).
 
--export([start/0, stop/0]).
+-export([start/0, stop/0, join_cluster/1]).
 %% Application callbacks
 -export([start/2, stop/1]).
 
@@ -41,3 +41,7 @@ start() ->
     application:start(mnesia),
     application:start(inets),
     application:start(carotene).
+
+join_cluster(Node) ->
+    net_kernel:connect_node(Node),
+    ok.

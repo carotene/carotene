@@ -5,8 +5,9 @@
 start() ->
     OptSpecList =
     [
-     {nodename,    $n,        "nodename",    {string, "carotene1"}, "Node name"},
-     {help,    $h,        undefined,    undefined, "Show this help"}
+     {nodename, $n, "nodename", {string, undefined}, "Node name"},
+     {nodetojoin, $j, "node to join", {string, undefined}, "Node to join"},
+     {help, $h, undefined, undefined, "Show this help"}
     ],
     parse_arguments(OptSpecList).
 
@@ -39,5 +40,18 @@ maybe_stop(Args, Extra) ->
                     {nodename, Node} -> rpc:call(list_to_atom(Node), carotene_app, stop, []);
                     false -> io:format("nodename option required (run with -h for help)~n")
                 end;
-        false -> ok 
+        false -> maybe_join_cluster(Args, Extra) 
+    end.
+
+maybe_join_cluster(Args, Extra) ->
+    case lists:member("join_cluster", Extra) of
+        true -> case lists:keyfind(nodename, 1, Args) of 
+                    {nodename, Node} -> 
+                        case lists:keyfind(nodetojoin, 1, Args) of
+                            {nodetojoin, Node2} -> io:format("~p ~n", [rpc:call(list_to_atom(Node), carotene_app, join_cluster, [list_to_atom(Node2)])]);
+                            false -> io:format("--nodetojoin option required (run with -h for help)~n")
+                        end;
+                    false -> io:format("nodename option required (run with -h for help)~n")
+                end;
+        false -> ok%maybe_cluster_status(Args, Extra) 
     end.
