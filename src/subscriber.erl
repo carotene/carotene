@@ -25,7 +25,6 @@ init([Channel, UserId, ReplyPid]) ->
     erlang:monitor(process, ReplyPid),
     % TODO: things can go wrong here with authorization, but lets advance first
     ok = maybe_consume(UserId, AuthConfig, Channel),
-    gen_server:cast(presence_serv, {subscribe, UserId, Channel, self()}),
     {ok, #state{reply_pid = ReplyPid, channel = Channel, user_id = UserId}}.
 
 handle_info({'DOWN', _Ref, process, _Pid, _}, State) ->
@@ -45,8 +44,7 @@ handle_cast(_Message, State) ->
     {noreply, State}.
 
 terminate(_Reason, #state{channel = Channel, user_id = UserId}) ->
-    gen_server:cast(presence_serv, {unsubscribe, UserId, Channel, self()}),
-    ok.
+    ok = gen_server:cast(router, {unsubscribe, Channel, from, self(), user_id, UserId}).
 
 code_change(_OldVsn, State, _Extra) ->
     State.
@@ -54,7 +52,7 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal
 maybe_consume(UserId, AuthConfig, Channel) ->
     case can_subscribe(UserId, AuthConfig, Channel) of
-        ok -> subscribe(Channel);
+        ok -> subscribe(Channel, UserId);
         _ -> error
     end.
 
@@ -90,5 +88,5 @@ ask_authentication(UserId, AuthConfig, Channel) ->
             end
     end.
 
-subscribe(Channel) ->
-    ok = gen_server:cast(router, {subscribe, Channel, from, self()}).
+subscribe(Channel, UserId) ->
+    ok = gen_server:cast(router, {subscribe, Channel, from, self(), user_id, UserId}).

@@ -25,7 +25,7 @@ start(From) ->
 
 init([From]) ->
     erlang:monitor(process, From),
-    {ok, #state{publishers=dict:new(), subscribers=dict:new(), transport=From}}.
+    {ok, #state{publishers=dict:new(), subscribers=dict:new(), transport=From, user_id=anonymous}}.
 
 handle_cast({process_message, Message}, State) ->
     StateNew = try jsx:decode(Message) of

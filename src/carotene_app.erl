@@ -26,7 +26,6 @@ stop() ->
     application:stop(cowboy),
     application:stop(rabbit_common),
     application:stop(amqp_client),
-    application:stop(mnesia),
     application:stop(inets),
     application:stop(carotene),
     ok.
@@ -38,7 +37,6 @@ start() ->
     application:start(cowboy),
     application:start(rabbit_common),
     application:start(amqp_client),
-    application:start(mnesia),
     application:start(inets),
     application:start(carotene).
 
