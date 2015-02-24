@@ -7,7 +7,7 @@
 -export([init/1, terminate/2, code_change/3, handle_call/3,
          handle_cast/2, handle_info/2]).
 
--record(state, {channel, broker, auth_config, already_auth, user_id}).
+-record(state, {channel, auth_config, already_auth, user_id}).
 
 
 start_link(Channel, UserId, From) ->
@@ -23,18 +23,18 @@ stop(Pid) ->
 
 init([Channel, UserId, From]) ->
     erlang:monitor(process, From),
-    {_BrokerModule, Broker} = broker_sup:get_broker(),
     {ok, AuthConfig} = application:get_env(carotene, publish_auth),
-    {ok, #state{user_id = UserId, channel = Channel, broker = Broker, auth_config = AuthConfig, already_auth = false}}.
+    {ok, #state{user_id = UserId, channel = Channel, auth_config = AuthConfig, already_auth = false}}.
 
 handle_info({'DOWN', _Ref, process, _Pid, _}, State) ->
     {stop, shutdown, State};
 handle_info(shutdown, State) ->
     {stop, shutdown, State}.
 
-handle_call({publish, Message}, _From, State = #state{broker = Broker, channel = Channel, auth_config = AuthConfig, user_id = UserId}) ->
+handle_call({publish, Message}, _From, State = #state{channel = Channel, auth_config = AuthConfig, user_id = UserId}) ->
     case already_auth of
-        true -> gen_server:cast(router, {publish,  Message, channel, Channel}),
+        true -> 
+                gen_server:cast(router, {publish,  Message, channel, Channel}),
                 {reply, ok, State};
         _ ->
             case can_publish(UserId, AuthConfig, Channel) of

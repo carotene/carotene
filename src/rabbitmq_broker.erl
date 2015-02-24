@@ -3,10 +3,10 @@
 -include_lib("amqp_client/include/amqp_client.hrl").
 
 -behaviour(gen_server).
--export([start_link/1, start/1, stop/1, declare_exchange/2, start_exchange/1]).
+-export([start_link/1, start/1, stop/1]).
 -export([init/1, handle_call/3, handle_cast/2, terminate/2, handle_info/2, code_change/3]).
 
--record(state, {channel, supervisor, connection, exchange_supervisor, queue_supervisor}).
+-record(state, {channel, supervisor, connection, queue_supervisor}).
 
 start_link(Sup) ->
     Opts = [],
@@ -19,29 +19,13 @@ start(Sup) ->
 stop(Pid) ->
     gen_server:call(Pid, stop, infinity).
 
-start_exchange(Pid)->
-    gen_server:call(Pid, start_exchange).
-
-declare_exchange(ExchangeServ, ExchangeSpecs)->
-    rabbitmq_exchange:declare_exchange(ExchangeServ, ExchangeSpecs).
-
 init([Sup]) ->
     {ok, Connection} =
         amqp_connection:start(#amqp_params_network{host = "localhost"}),
     {ok, Channel} = amqp_connection:open_channel(Connection),
-    self() ! {start_rabbitmq_exchange_sup, Channel},
     self() ! {start_rabbitmq_queue_sup, Channel},
 
     {ok, #state{channel = Channel, connection = Connection, supervisor = Sup}}.
-
-handle_info({start_rabbitmq_exchange_sup, Channel}, State = #state{supervisor = Sup}) ->
-    {ok, ExchangeSup} = supervisor:start_child(Sup, {rabbitmq_exchange_sup,
-          {rabbitmq_exchange_sup, start_link, [Channel]},
-          permanent,
-          infinity,
-          worker,
-          [rabbitmq_exchange_sup]}),
-    {noreply, State#state{exchange_supervisor = ExchangeSup}};
 
 handle_info({start_rabbitmq_queue_sup, Channel}, State = #state{supervisor = Sup}) ->
     {ok, QueueSup} = supervisor:start_child(Sup, {rabbitmq_queue_sup,
@@ -55,16 +39,26 @@ handle_info({start_rabbitmq_queue_sup, Channel}, State = #state{supervisor = Sup
 handle_info(shutdown, State) ->
     {stop, normal, State}.
 
-handle_call(start_exchange, _From, State = #state{exchange_supervisor = ExchangeSup}) ->
-    {ok, Exchange} = supervisor:start_child(ExchangeSup, []),
-
-    {reply, {ok, Exchange}, State};
-handle_call(start_queue, _From, State = #state{queue_supervisor = QueueSup}) ->
+handle_call(start_subscriber, _From, State = #state{queue_supervisor = QueueSup}) ->
     {ok, Queue} = supervisor:start_child(QueueSup, []),
 
     {reply, {ok, Queue}, State};
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State}.
+
+handle_cast({publish, Message, channel, Channel}, State = #state{channel = RabbitChannel}) ->
+    amqp_channel:call(RabbitChannel, #'exchange.declare'{exchange = Channel,
+                                                   type = <<"fanout">>,
+                                                   durable = false,
+                                                   passive = true,
+                                                   internal = false
+                                                  }),
+    amqp_channel:cast(RabbitChannel,
+                      #'basic.publish'{
+                        exchange = Channel,
+                        routing_key = <<"">>},
+                      #amqp_msg{payload = Message}),
+    {noreply, State};
 
 handle_cast(_Message, State) ->
     {noreply, State}.

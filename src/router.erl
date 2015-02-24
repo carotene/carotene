@@ -29,7 +29,6 @@ handle_call({local_presence, Channel}, _From, State) ->
     {reply, UsersWithDupes, State}.
 
 handle_cast({publish, Message, channel, Channel}, State) ->
-    io:format("channel: ~p~n", [Channel]),
     Subs = try ets:lookup_element(router_subscribers, Channel, 2) of
                Subs1 -> Subs1
            catch _:_ -> []
@@ -37,6 +36,7 @@ handle_cast({publish, Message, channel, Channel}, State) ->
 
     broadcast({received_message, Message}, Subs),
     broadcast_cluster({cluster_publish, Message, channel, Channel}, nodes()),
+    broker_publish(Message, Channel),
     {noreply, State};
 
 handle_cast({cluster_publish, Message, channel, Channel}, State) ->
@@ -82,6 +82,10 @@ broadcast_cluster(Msg, [Node|Nodes]) ->
     broadcast_cluster(Msg, Nodes);
 broadcast_cluster(_, []) ->
     true.
+
+broker_publish(Msg, Channel) ->
+    {_BrokerType, Broker} = broker_sup:get_broker(),
+    gen_server:cast(Broker, {publish, Msg, channel, Channel}).
 
 local_presence(Channel) ->
     gen_server:call(?MODULE, {local_presence, Channel}).
