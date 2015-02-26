@@ -7,7 +7,7 @@
 -export([start/3, start_link/3]).
 -export([stop/1]).
 
--record(state, {channel, reply_pid, auth_config, already_auth, user_id}).
+-record(state, {channel, reply_pid, already_authorized, user_id}).
 
 start_link(Channel, UserId, ReplyPid) ->
     Opts = [],
@@ -21,10 +21,7 @@ stop(Pid) ->
     gen_server:call(Pid, stop, infinity).
 
 init([Channel, UserId, ReplyPid]) ->
-    {ok, AuthConfig} = application:get_env(carotene, subscribe_auth),
     erlang:monitor(process, ReplyPid),
-    % TODO: things can go wrong here with authorization, but lets advance first
-    ok = maybe_consume(UserId, AuthConfig, Channel),
     {ok, #state{reply_pid = ReplyPid, channel = Channel, user_id = UserId}}.
 
 handle_info({'DOWN', _Ref, process, _Pid, _}, State) ->
@@ -36,6 +33,10 @@ handle_info({received_message, Msg}, State = #state{reply_pid = ReplyPid}) ->
 
 handle_info(shutdown, State) ->
     {stop, normal, State}.
+
+handle_call(subscribe, _From, State = #state{channel = Channel, user_id = UserId}) ->
+    Res = maybe_consume(UserId, Channel),
+    {reply, Res, State};
 
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State}.
@@ -49,43 +50,22 @@ terminate(_Reason, #state{channel = Channel, user_id = UserId}) ->
 code_change(_OldVsn, State, _Extra) ->
     State.
 
-%% Internal
-maybe_consume(UserId, AuthConfig, Channel) ->
-    case can_subscribe(UserId, AuthConfig, Channel) of
-        ok -> subscribe(Channel, UserId);
-        _ -> error
+%%--------------------------------------------------------------------
+%%% Internal functions
+%%--------------------------------------------------------------------
+
+maybe_consume(UserId, Channel) ->
+    case can_subscribe(UserId, Channel) of
+        true -> subscribe(Channel, UserId),
+                ok;
+        Error -> {error, Error}
     end.
 
-can_subscribe(UserId, AuthConfig, Channel) ->
-    case lists:keyfind(enabled, 1, AuthConfig) of
-        false -> ok;
-        {enabled, false} -> ok;
-        {enabled, true} -> case lists:keyfind(level, 1, AuthConfig) of
-                               false -> bad_configuration;
-                               {level, anonymous} -> ok;
-                               {level, auth} -> case UserId of
-                                                    undefined -> needs_authentication;
-                                                    _ -> ok
-                                                end;
-                               {level, ask} -> case ask_authentication(UserId, AuthConfig, Channel) of
-                                                   true -> ok;
-                                                   Error -> Error
-                                               end
-                           end;
-        _ -> ok
-    end.
-
-ask_authentication(UserId, AuthConfig, Channel) ->
-    case lists:keyfind(authorization_url, 1, AuthConfig) of
-        false -> bad_configuration;
-        {authorization_url, AuthorizeUrl} ->
-            {ok, {{_Version, 200, _ReasonPhrase}, _Headers, Body}} = httpc:request(post, {AuthorizeUrl, [], "application/x-www-form-urlencoded", "user_id="++binary_to_list(UserId)++"&channel="++binary_to_list(Channel)}, [], []),
-            % TODO: This can crash
-            case jsx:decode(binary:list_to_bin(Body)) of
-                [{<<"authorized">>, <<"true">>}] -> true;
-                [{<<"authorized">>, <<"false">>}] -> no_authorization;
-                _ -> bad_server_response_on_authorization
-            end
+can_subscribe(UserId, Channel) ->
+    case application:get_env(carotene, subscribe_authorization) of
+        % if no authorization config defined, user can publish
+        undefined -> true;
+        {ok, AuthConfig} -> carotene_authorization:check_authorization(UserId, Channel, AuthConfig)
     end.
 
 subscribe(Channel, UserId) ->

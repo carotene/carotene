@@ -9,9 +9,6 @@
 
 -record(state, {channel, authorization_config, already_authorized, user_id}).
 
-
-
-
 start_link(Channel, UserId, From) ->
     Opts = [],
     gen_server:start_link(?MODULE, [Channel, UserId, From], Opts).
