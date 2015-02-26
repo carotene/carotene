@@ -25,7 +25,7 @@ init([]) ->
                                    {broker_sup, start_link, []},
                                    permanent,
                                    infinity,
-                                   worker,
+                                   supervisor,
                                    [broker_sup]
                                   },
                                   {http_initializer,
