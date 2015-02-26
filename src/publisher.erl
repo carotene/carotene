@@ -10,6 +10,8 @@
 -record(state, {channel, authorization_config, already_authorized, user_id}).
 
 
+
+
 start_link(Channel, UserId, From) ->
     Opts = [],
     gen_server:start_link(?MODULE, [Channel, UserId, From], Opts).
@@ -63,35 +65,3 @@ can_publish(UserId, Channel) ->
         undefined -> true;
         {ok, AuthConfig} -> carotene_authorization:check_authorization(UserId, Channel, AuthConfig)
     end.
-%    {ok, AuthConfig} = application:get_env(carotene, publish_authorization),
-%    case lists:keyfind(enabled, 1, AuthConfig) of
-%        false -> ok;
-%        {enabled, false} -> ok;
-%        {enabled, true} -> case lists:keyfind(level, 1, AuthConfig) of
-%                               false -> bad_configuration;
-%                               {level, anonymous} -> ok;
-%                               {level, auth} -> case UserId of
-%                                                    undefined -> needs_authentication;
-%                                                    _ -> ok
-%                                                end;
-%                               {level, ask} -> case ask_authentication(UserId, AuthConfig, Channel) of
-%                                                   true -> ok;
-%                                                   Error -> Error
-%                                               end
-%                           end;
-%        _ -> ok
-%    end.
-%
-%ask_authentication(UserId, AuthConfig, Channel) ->
-%    case lists:keyfind(authorization_url, 1, AuthConfig) of
-%        false -> bad_configuration;
-%        {authorization_url, AuthorizeUrl} ->
-%            {ok, {{_Version, 200, _ReasonPhrase}, _Headers, Body}} = httpc:request(post, {AuthorizeUrl, [], "application/x-www-form-urlencoded", "user_id="++binary_to_list(UserId)++"&channel="++binary_to_list(Channel)}, [], []),
-%            % TODO: This can crash
-%            case jsx:decode(binary:list_to_bin(Body)) of
-%                [{<<"authorized">>, <<"true">>}] -> true;
-%                [{<<"authorized">>, <<"false">>}] -> no_authorization;
-%                _ -> 
-%                    bad_server_response_on_authorization
-%            end
-%    end.
