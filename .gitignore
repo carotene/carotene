@@ -4,3 +4,5 @@ ebin/*
 _rel/*
 .erlang.mk.packages*
 priv/*
+.rebar/*
+test/*.beam
