@@ -2,7 +2,6 @@
 
 -behaviour(gen_server).
 
--include_lib("eunit/include/eunit.hrl").
 
 -export([start/1, start_link/1]).
 -export([stop/1]).
@@ -115,13 +114,17 @@ process_message([{<<"authenticate">>, AssumedUserId}, {<<"token">>, Token}], Sta
     end;
 
 process_message([{<<"presence">>, Channel}], State = #state{subscribers=Subs}) ->
-    case dict:find(Channel, Subs) of
-        error -> self() ! {just_send, <<"Cannot ask for presence when not subscribed to the channel">>};
-        {ok, _} ->
-            UsersSub = carotene_presence:presence(Channel),
-            self() ! {presence_response, jsx:encode([{<<"subscribers">>, UsersSub},
-                                                     {<<"channel">>, Channel}
-                                                    ])}
+    case application:get_env(carotene, presence) of
+        {ok, true} -> 
+            case dict:find(Channel, Subs) of
+                error -> self() ! {just_send, <<"Cannot ask for presence when not subscribed to the channel">>};
+                {ok, _} ->
+                    UsersSub = carotene_presence:presence(Channel),
+                    self() ! {presence_response, jsx:encode([{<<"subscribers">>, UsersSub},
+                                                             {<<"channel">>, Channel}
+                                                            ])}
+            end;
+        _ -> self() ! {just_send, <<"Presence is disabled">>}
     end,
     State;
 

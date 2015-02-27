@@ -117,6 +117,16 @@ authentication_after_subscription_test_() ->
         end
      }}.
 
+cannot_ask_for_presence_if_not_configured_test_() ->
+    {"Cannot ask for presence if not configures",
+     {setup, 
+        fun start_connection/0,
+        fun stop/1,
+        fun(Connection) ->
+                [try_ask_presence_not_configured(Connection)]
+        end
+     }}.
+
 can_ask_for_presence_test_() ->
     {"Can ask for presence",
      {setup, 
@@ -307,6 +317,7 @@ try_subscribe_then_authenticate_success(Connection) ->
     ?_assertEqual(Expected, Obtained).
 
 try_ask_presence(Connection) ->
+    application:set_env(carotene, presence, true),
     subscribe(Connection),
     meck:new(carotene_presence),
     meck:expect(carotene_presence, presence, fun(_Channel) -> [<<"someuser">>] end),
@@ -321,8 +332,20 @@ try_ask_presence(Connection) ->
     ?_assertEqual(Expected, Obtained).
 
 try_ask_presence_not_subscribed(Connection) ->
+    application:set_env(carotene, presence, true),
     gen_server:cast(Connection, {process_message, jsx:encode([{<<"presence">>, <<"room1">>}])}),
     Expected = {text, jsx:encode([{<<"info">>, <<"Cannot ask for presence when not subscribed to the channel">>}])},
+    Obtained = receive
+                  Message -> Message
+              after 2000 -> false
+              end,
+    ?_assertEqual(Expected, Obtained).
+
+try_ask_presence_not_configured(Connection) ->
+    application:unset_env(carotene, presence),
+    subscribe(Connection),
+    gen_server:cast(Connection, {process_message, jsx:encode([{<<"presence">>, <<"room1">>}])}),
+    Expected = {text, jsx:encode([{<<"info">>, <<"Presence is disabled">>}])},
     Obtained = receive
                   Message -> Message
               after 2000 -> false
