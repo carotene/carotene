@@ -114,14 +114,13 @@ process_message([{<<"authenticate">>, AssumedUserId}, {<<"token">>, Token}], Sta
         {ok, AuthenticateUrl} -> try_authenticate(AuthenticateUrl, AssumedUserId, Token, State)
     end;
 
-process_message([{<<"presence">>, Channel}], State = #state{publishers=Pubs}) ->
-    case dict:find(Channel, Pubs) of
-        error -> ok;
+process_message([{<<"presence">>, Channel}], State = #state{subscribers=Subs}) ->
+    case dict:find(Channel, Subs) of
+        error -> self() ! {just_send, <<"Cannot ask for presence when not subscribed to the channel">>};
         {ok, _} ->
-            {UsersPub, UsersSub} = presence_serv:presence(Channel),
-            self() ! {presence_response, jsx:encode([{<<"publishers">>, UsersPub},
-                                                     {<<"subscribers">>, UsersSub},
-                                                     {<<"publisher">>, Channel}
+            UsersSub = carotene_presence:presence(Channel),
+            self() ! {presence_response, jsx:encode([{<<"subscribers">>, UsersSub},
+                                                     {<<"channel">>, Channel}
                                                     ])}
     end,
     State;
@@ -130,13 +129,13 @@ process_message(_Msg, State) ->
     self() ! {just_send, <<"Unknown message received">>},
     State .
 
-try_authenticate(AuthenticateUrl, AssumedUserId, Token, State) ->
+try_authenticate(AuthenticateUrl, AssumedUserId, Token, State = #state{subscribers = Subs, publishers = Pubs}) ->
     case httpc:request(post, {AuthenticateUrl, [], "application/x-www-form-urlencoded", "user_id="++binary_to_list(AssumedUserId)++"&token="++binary_to_list(Token)}, [], []) of
         {ok, {{_Version, 200, _ReasonPhrase}, _Headers, Body}} -> 
             {UserId, UserData} = try lists:keysort(1, jsx:decode(binary:list_to_bin(Body))) of 
                                      [{<<"authenticated">>, true}, {<<"user_data">>, ResUserData}] ->
                                          self() ! {just_send, <<"Authenticated">>},
-                                         %update info on all channels
+                                         update_users(AssumedUserId, Subs, Pubs),
                                          {AssumedUserId, ResUserData};
                                      _ -> self() ! {just_send, <<"Authentication failed">>},
                                           {undefined, undefined}
@@ -148,3 +147,9 @@ try_authenticate(AuthenticateUrl, AssumedUserId, Token, State) ->
         _ -> self() ! {just_send, <<"Authentication error: Bad response from server">>},
              State
     end.
+
+update_users(UserId, Subs, Pubs) ->
+    dict:map(fun(_Channel, Sub) -> 
+                     subscriber:update_user(Sub, UserId) end, Subs),
+    dict:map(fun(_Channel, Pub) -> 
+                     subscriber:update_user(Pub, UserId) end, Pubs).

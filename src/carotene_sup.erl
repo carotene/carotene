@@ -56,12 +56,12 @@ init([]) ->
                                    supervisor,
                                    [subscriber_sup] 
                                   },
-                                  {presence_serv,
-                                   {presence_serv, start_link, []},
+                                  {carotene_presence,
+                                   {carotene_presence, start_link, []},
                                    permanent,
                                    infinity,
                                    supervisor,
-                                   [presence_serv] 
+                                   [carotene_presence] 
                                   },
                                   {admin_serv,
                                    {admin_serv, start_link, []},

@@ -4,7 +4,7 @@
 
 -export([init/1, terminate/2, code_change/3, handle_call/3,
          handle_cast/2, handle_info/2]).
--export([subscribe/1]).
+-export([subscribe/1, update_user/2]).
 -export([start/3, start_link/3]).
 -export([stop/1]).
 
@@ -42,6 +42,9 @@ handle_call(subscribe, _From, State = #state{channel = Channel, user_id = UserId
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State}.
 
+handle_cast({update_user, UserId}, State) ->
+    {noreply, State#state{user_id = UserId}};
+
 handle_cast(_Message, State) ->
     {noreply, State}.
 
@@ -57,6 +60,8 @@ code_change(_OldVsn, State, _Extra) ->
 %%--------------------------------------------------------------------
 
 subscribe(SubscriberPid) -> gen_server:call(SubscriberPid, subscribe).
+
+update_user(SubscriberPid, UserId) -> gen_server:cast(SubscriberPid, {update_user, UserId}).
 
 %%--------------------------------------------------------------------
 %%% Internal functions

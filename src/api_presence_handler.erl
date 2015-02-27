@@ -19,7 +19,7 @@ content_types_provided(Req, State) ->
      ], Req, State}.
 
 presence_to_json(Req, Channel) ->
-    {_, UsersSub} = presence_serv:presence(Channel),
+    {_, UsersSub} = carotene_presence:presence(Channel),
     Body = jsx:encode(UsersSub),
     {Body, Req, Channel}.
 

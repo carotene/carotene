@@ -117,6 +117,26 @@ authentication_after_subscription_test_() ->
         end
      }}.
 
+can_ask_for_presence_test_() ->
+    {"Can ask for presence",
+     {setup, 
+        fun start_connection/0,
+        fun stop/1,
+        fun(Connection) ->
+                [try_ask_presence(Connection)]
+        end
+     }}.
+
+cannot_ask_for_presence_when_no_subscribed_test_() ->
+    {"Can ask for presence",
+     {setup, 
+        fun start_connection/0,
+        fun stop/1,
+        fun(Connection) ->
+                [try_ask_presence_not_subscribed(Connection)]
+        end
+     }}.
+
 %% Helpers
 start_connection() ->
     {ok, Connection} = connection:start(self()),
@@ -268,7 +288,7 @@ try_subscribe_then_authenticate_success(Connection) ->
     subscribe(Connection),
     meck:new(httpc),
     meck:new(subscriber, [passthrough]),
-%    meck:expect(subscriber, update_user, fun(_Somepid, {_UserInfo, _UserData}) -> ok end),
+    meck:expect(subscriber, update_user, fun(_Somepid, _UserId) -> ok end),
     gen_server:cast(Connection, {process_message, jsx:encode([{<<"subscribe">>, <<"room1">>}])}),
     % wait a bit for cast to work
     timer:sleep(10),
@@ -284,4 +304,27 @@ try_subscribe_then_authenticate_success(Connection) ->
     meck:validate(subscriber),
     meck:unload(httpc),
     meck:unload(subscriber),
+    ?_assertEqual(Expected, Obtained).
+
+try_ask_presence(Connection) ->
+    subscribe(Connection),
+    meck:new(carotene_presence),
+    meck:expect(carotene_presence, presence, fun(_Channel) -> [<<"someuser">>] end),
+    gen_server:cast(Connection, {process_message, jsx:encode([{<<"presence">>, <<"room1">>}])}),
+    Expected = {text, jsx:encode([{<<"subscribers">>, [<<"someuser">>]}, {<<"channel">>, <<"room1">>}])},
+    Obtained = receive
+                  Message -> Message
+              after 2000 -> false
+              end,
+    meck:validate(carotene_presence),
+    meck:unload(carotene_presence),
+    ?_assertEqual(Expected, Obtained).
+
+try_ask_presence_not_subscribed(Connection) ->
+    gen_server:cast(Connection, {process_message, jsx:encode([{<<"presence">>, <<"room1">>}])}),
+    Expected = {text, jsx:encode([{<<"info">>, <<"Cannot ask for presence when not subscribed to the channel">>}])},
+    Obtained = receive
+                  Message -> Message
+              after 2000 -> false
+              end,
     ?_assertEqual(Expected, Obtained).

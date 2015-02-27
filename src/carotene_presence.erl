@@ -1,4 +1,4 @@
--module(presence_serv).
+-module(carotene_presence).
 
 -behaviour(gen_server).
 
@@ -22,8 +22,6 @@ handle_info(shutdown, State) ->
     {stop, shutdown, State}.
 
 handle_call({presence, Channel}, _From, State) ->
-    % Not the best way of doing this, with several remote calls, but an 
-    % approximation, and very simple. Better to buffer somehow?
     {UsersDup, _} = rpc:multicall(router, local_presence, [Channel]),
     UsersSub = sets:to_list(sets:from_list(lists:append(UsersDup))),
     {reply, UsersSub, State}.
