@@ -4,6 +4,7 @@
 
 -export([start/3, start_link/3]).
 -export([stop/1]).
+-export([publish/2]).
 -export([init/1, terminate/2, code_change/3, handle_call/3,
          handle_cast/2, handle_info/2]).
 
@@ -55,7 +56,15 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
-%% Internal
+%%--------------------------------------------------------------------
+%%% Own exported functions
+%%--------------------------------------------------------------------
+
+publish(PublisherPid, Message) -> gen_server:call(PublisherPid, {publish, Message}).
+
+%%--------------------------------------------------------------------
+%%% Internal functions
+%%--------------------------------------------------------------------
 can_publish(UserId, Channel) ->
     case application:get_env(carotene, publish_authorization) of
         % if no authorization config defined, user can publish

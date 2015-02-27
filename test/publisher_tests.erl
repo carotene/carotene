@@ -59,5 +59,6 @@ try_send_asks_auth(Publisher) ->
     meck:new(carotene_authorization),
     meck:expect(carotene_authorization, check_authorization, fun(_, _, _) -> true end),
     Res = gen_server:call(Publisher, {publish, <<"hi">>}),
+    meck:validate(carotene_authorization),
     meck:unload(carotene_authorization),
     ?_assertEqual(ok, Res).

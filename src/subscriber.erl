@@ -4,6 +4,7 @@
 
 -export([init/1, terminate/2, code_change/3, handle_call/3,
          handle_cast/2, handle_info/2]).
+-export([subscribe/1]).
 -export([start/3, start_link/3]).
 -export([stop/1]).
 
@@ -35,7 +36,7 @@ handle_info(shutdown, State) ->
     {stop, normal, State}.
 
 handle_call(subscribe, _From, State = #state{channel = Channel, user_id = UserId}) ->
-    Res = maybe_consume(UserId, Channel),
+    Res = maybe_subscribe(UserId, Channel),
     {reply, Res, State};
 
 handle_call(stop, _From, State) ->
@@ -50,13 +51,20 @@ terminate(_Reason, #state{channel = Channel, user_id = UserId}) ->
 code_change(_OldVsn, State, _Extra) ->
     State.
 
+
+%%--------------------------------------------------------------------
+%%% Own exported functions
+%%--------------------------------------------------------------------
+
+subscribe(SubscriberPid) -> gen_server:call(SubscriberPid, subscribe).
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
 
-maybe_consume(UserId, Channel) ->
+maybe_subscribe(UserId, Channel) ->
     case can_subscribe(UserId, Channel) of
-        true -> subscribe(Channel, UserId),
+        true -> subscribe_in_router(Channel, UserId),
                 ok;
         Error -> {error, Error}
     end.
@@ -68,5 +76,5 @@ can_subscribe(UserId, Channel) ->
         {ok, AuthConfig} -> carotene_authorization:check_authorization(UserId, Channel, AuthConfig)
     end.
 
-subscribe(Channel, UserId) ->
+subscribe_in_router(Channel, UserId) ->
     ok = gen_server:cast(router, {subscribe, Channel, from, self(), user_id, UserId}).

@@ -26,9 +26,9 @@ ask_authentication(UserId, Channel, AuthConfig) ->
             {ok, {{_Version, 200, _ReasonPhrase}, _Headers, Body}} = httpc:request(post, {AuthorizeUrl, [], "application/x-www-form-urlencoded", "user_id="++binary_to_list(UserId)++"&channel="++binary_to_list(Channel)}, [], []),
             try jsx:decode(binary:list_to_bin(Body)) of
                 Response -> case Response of
-                                [{<<"authorized">>, <<"true">>}] -> true;
-                                [{<<"authorized">>, <<"false">>}] -> <<"no authorization">>;
-                                _ -> 
+                                [{<<"authorized">>, true}] -> true;
+                                [{<<"authorized">>, false}] -> <<"no authorization">>;
+                                Smth -> 
                                     <<"bad response from server on authorization">>
                             end
             catch _:_ ->
