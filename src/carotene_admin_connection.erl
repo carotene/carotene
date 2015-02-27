@@ -21,7 +21,7 @@ stop(Pid) ->
     gen_server:call(Pid, stop, infinity).
 
 init([]) ->
-    State = #state{subscribers = dict:new()},
+    State = #state{subscribers = []},
     {ok, State}.
 
 handle_call({publish, {channel, Channel}, {message, Message}}, _From, State) ->
@@ -37,13 +37,12 @@ handle_call({subscribe, {channel, Channel}}, _From, State=#state{subscribers=Sub
     subscribe(Channel),
     NewSubs = case lists:member(Channel, Subs) of
                 true -> Subs;
-                false -> lists:append(Channel, Subs)
+                false -> [Channel| Subs]
             end,
     {reply, ok, State#state{subscribers = NewSubs}};
 
 handle_call(get_subscribed, _From, State=#state{subscribers=Subs}) ->
-    Channels = dict:fetch_keys(Subs),
-    {reply, {ok, Channels}, State};
+    {reply, {ok, Subs}, State};
 
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State};
@@ -55,8 +54,11 @@ handle_cast(_Msg, State) ->
     {noreply, State}.
 
 handle_info({received_message, Msg, channel, Channel}, State) ->
-    {ok, Url} = application:get_env(carotene, subscribe_url),
-    httpc:request(post, {Url, [], "application/x-www-form-urlencoded", "nmessage="++binary_to_list(Msg)++"&channel="++binary_to_list(Channel)}, [], []),
+    case application:get_env(carotene, subscribe_url) of
+        {ok, Url} -> httpc:request(post, {Url, [], "application/x-www-form-urlencoded", "nmessage="++binary_to_list(Msg)++"&channel="++binary_to_list(Channel)}, [], []);
+        % TODO: log this
+        _ -> ok
+    end,
     {noreply, State};
 
 handle_info(stop, State) ->
@@ -65,9 +67,8 @@ handle_info(stop, State) ->
 handle_info(_Info, State) ->
     {stop, {unhandled_message, _Info}, State}.
 
-terminate(_Reason, State=#state{subscribers=Subs}) ->
-    Channels = dict:fetch_keys(Subs),
-    router:unsubscribe_channels(Channels, self(), server). 
+terminate(_Reason, #state{subscribers=Subs}) ->
+    router:unsubscribe_channels(Subs, self(), server). 
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
