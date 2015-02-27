@@ -125,6 +125,7 @@ process_message([{<<"authenticate">>, AssumedUserId}, {<<"token">>, Token}], Sta
             {UserId, UserData} = try lists:keysort(1, jsx:decode(binary:list_to_bin(Body))) of 
                                      [{<<"authenticated">>, true}, {<<"user_data">>, ResUserData}] ->
                                          self() ! {just_send, <<"Authenticated">>},
+                                         %update info on all channels
                                          {AssumedUserId, ResUserData};
                                      _ -> self() ! {just_send, <<"Authentication failed">>},
                                           {undefined, undefined}

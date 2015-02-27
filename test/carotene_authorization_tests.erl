@@ -4,11 +4,11 @@
 
 level_must_exist_test() ->
     Res = carotene_authorization:check_authorization(anonymous, <<"room1">>, []),
-    ?assertEqual(bad_value_for_level_in_configuration, Res).
+    ?assertEqual(<<"bad value for level in configuration">>, Res).
 
 level_must_be_an_allowed_value_test() ->
     Res = carotene_authorization:check_authorization(anonymous, <<"room1">>, [{level, whatever_man}]),
-    ?assertEqual(bad_value_for_level_in_configuration, Res).
+    ?assertEqual(<<"bad value for level in configuration">>, Res).
 
 when_level_anonymous_always_success_test() ->
     Res = carotene_authorization:check_authorization(anonymous, <<"room1">>, [{level, anonymous}]),
@@ -16,17 +16,17 @@ when_level_anonymous_always_success_test() ->
 
 when_level_authenticated_anonymous_fail_others_succeed_test() ->
     Res = carotene_authorization:check_authorization(anonymous, <<"room1">>, [{level, authenticated}]),
-    ?assertEqual(needs_authentication, Res),
+    ?assertEqual(<<"needs authentication">>, Res),
     Res2 = carotene_authorization:check_authorization(<<"someuser">>, <<"room1">>, [{level, authenticated}]),
     ?assertEqual(true, Res2).
 
 when_level_ask_anonymous_fail_test() ->
     Res = carotene_authorization:check_authorization(anonymous, <<"room1">>, [{level, ask}]),
-    ?assertEqual(needs_authentication, Res).
+    ?assertEqual(<<"needs authentication">>, Res).
 
 when_level_ask_fails_if_authorization_url_not_present_test() ->
     Res = carotene_authorization:check_authorization(<<"user1">>, <<"room1">>, [{level, ask}]),
-    ?assertEqual(bad_value_for_authorization_url_in_configuration, Res).
+    ?assertEqual(<<"bad value for authorization url in configuration">>, Res).
 
 when_level_ask_user_asks_for_authorization_test() ->
     meck:new(httpc),
@@ -34,7 +34,7 @@ when_level_ask_user_asks_for_authorization_test() ->
                                         {ok, {{v, 200, rp}, h, binary:bin_to_list(jsx:encode([{<<"authorized">>, <<"false">>}]))}} end),
     Res = carotene_authorization:check_authorization(<<"user1">>, <<"room1">>, [{level, ask}, {authorization_url, <<"http://someurl.com">>}]),
     meck:unload(httpc),
-    ?assertEqual(no_authorization, Res).
+    ?assertEqual(<<"no authorization">>, Res).
 
 when_level_ask_user_asks_for_authorization_can_succeed_test() ->
     meck:new(httpc),
@@ -50,7 +50,7 @@ malformed_json_from_server_in_authorization_fails_test() ->
                                         {ok, {{v, 200, rp}, h, binary:bin_to_list(<<"authorized true">>)}} end),
     Res = carotene_authorization:check_authorization(<<"user1">>, <<"room1">>, [{level, ask}, {authorization_url, <<"http://someurl.com">>}]),
     meck:unload(httpc),
-    ?assertEqual(malformed_json_from_server_on_authorization, Res).
+    ?assertEqual(<<"malformed json from server on authorization">>, Res).
 
 bad_response_from_server_on_authorization_failt_test() ->
     meck:new(httpc),
@@ -58,4 +58,4 @@ bad_response_from_server_on_authorization_failt_test() ->
                                         {ok, {{v, 200, rp}, h, binary:bin_to_list(jsx:encode([{<<"server_says">>, <<"some_stuff">>}]))}} end),
     Res = carotene_authorization:check_authorization(<<"user1">>, <<"room1">>, [{level, ask}, {authorization_url, <<"http://someurl.com">>}]),
     meck:unload(httpc),
-    ?assertEqual(bad_response_from_server_on_authorization, Res).
+    ?assertEqual(<<"bad response from server on authorization">>, Res).
