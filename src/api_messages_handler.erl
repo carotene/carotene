@@ -26,10 +26,10 @@ content_types_accepted(Req, State) ->
 
 from_json(Req, State) ->
     Channel = cowboy_req:binding(channel, Req),
-    publish_in_channel(channel, Req, State).
+    publish_in_channel(Channel, Req, State).
 
 publish_in_channel(Channel, Req, State) ->
     {ok, PostParams, Req2} = cowboy_req:body_qs(Req),
     {_, Message} = lists:keyfind(<<"message">>, 1, PostParams),
-    gen_server:call(admin_serv, {publish, {channel, Channel}, {message, Message}}),
+    gen_server:call(carotene_admin_connection, {publish, {channel, Channel}, {message, Message}}),
     {true, Req2, State}.

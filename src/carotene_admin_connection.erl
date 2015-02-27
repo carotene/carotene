@@ -1,8 +1,8 @@
--module(admin_serv).
+-module(carotene_admin_connection).
 
 -behaviour(gen_server).
 
--export([start_link/0]).
+-export([start_link/0, start/0]).
 -export([stop/1]).
 -export([init/1, terminate/2, code_change/3, handle_call/3,
          handle_cast/2, handle_info/2]).
@@ -13,25 +13,28 @@ start_link() ->
     Opts = [],
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], Opts).
 
+start() ->
+    Opts = [],
+    gen_server:start({local, ?MODULE}, ?MODULE, [], Opts).
+
 stop(Pid) ->
     gen_server:call(Pid, stop, infinity).
 
 init([]) ->
-    {_BrokerModule, Broker} = broker_sup:get_broker(),
-    State = #state{subscribers = dict:new(), broker = Broker},
+    State = #state{subscribers = dict:new()},
     {ok, State}.
 
-handle_call({publish, {channel, Channel}, {message, Message}}, _From, State = #state{broker = Broker}) ->
+handle_call({publish, {channel, Channel}, {message, Message}}, _From, State) ->
     Payload = jsx:encode([{<<"message">>, Message},
                           {<<"channel">>, Channel}, 
                           {<<"from_server">>, <<"true">>}
                          ]),
-    gen_server:cast(Broker, {publish, Payload, channel, Channel}),
+    router:publish(Payload, Channel),
 
     {reply, ok, State};
 
-handle_call({subscribe, {channel, Channel}}, _From, State=#state{subscribers=Subs, broker = Broker}) ->
-    subscribe(Channel, Broker),
+handle_call({subscribe, {channel, Channel}}, _From, State=#state{subscribers=Subs}) ->
+    subscribe(Channel),
     NewSubs = case lists:member(Channel, Subs) of
                 true -> Subs;
                 false -> lists:append(Channel, Subs)
@@ -62,13 +65,12 @@ handle_info(stop, State) ->
 handle_info(_Info, State) ->
     {stop, {unhandled_message, _Info}, State}.
 
-terminate(_Reason, _State) ->
-    ok.
+terminate(_Reason, State=#state{subscribers=Subs}) ->
+    Channels = dict:fetch_keys(Subs),
+    router:unsubscribe_channels(Channels, self(), server). 
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
-subscribe(Channel, Broker) ->
-    {_BrokerModule, Broker} = broker_sup:get_broker(),
-    {ok, Subscriber} = gen_server:call(Broker, start_subscriber),
-    ok = gen_server:cast(Subscriber, {subscribe, Channel, from, self()}).
+subscribe(Channel) ->
+    router:subscribe(Channel, self(), server).

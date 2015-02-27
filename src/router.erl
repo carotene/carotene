@@ -4,7 +4,7 @@
 
 -export([start/0, start_link/0]).
 -export([stop/1]).
--export([local_presence/1]).
+-export([local_presence/1, publish/2, subscribe/3, unsubscribe/3, unsubscribe_channels/3]).
 -export([init/1, terminate/2, code_change/3, handle_call/3,
          handle_cast/2, handle_info/2]).
 
@@ -64,12 +64,26 @@ handle_info(_Info, State) ->
 stop(Pid) ->
     gen_server:call(Pid, stop, infinity).
 
-
 terminate(_Reason, _State) ->
     ok.
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
+
+publish(Message, Channel) ->
+    gen_server:cast(?MODULE, {publish, Message, channel, Channel}).
+
+subscribe(Channel, From, UserId) ->
+    gen_server:cast(?MODULE, {subscribe, Channel, from, From, user_id, UserId}).
+
+unsubscribe(Channel, From, UserId) ->
+    gen_server:cast(?MODULE, {unsubscribe, Channel, from, From, user_id, UserId}).
+
+unsubscribe_channels([], _From, _UserId) ->
+    ok;
+unsubscribe_channels([Channel|Channels], From, UserId) ->
+    gen_server:cast(?MODULE, {unsubscribe, Channel, from, From, user_id, UserId}),
+    unsubscribe_channels(Channels, From, UserId).
 
 broadcast(Msg, [Pid|Pids]) ->
     Pid ! Msg,

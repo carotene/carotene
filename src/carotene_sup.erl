@@ -63,12 +63,12 @@ init([]) ->
                                    supervisor,
                                    [carotene_presence] 
                                   },
-                                  {admin_serv,
-                                   {admin_serv, start_link, []},
+                                  {carotene_admin_connection,
+                                   {carotene_admin_connection, start_link, []},
                                    permanent,
                                    infinity,
                                    worker,
-                                   [admin_serv] 
+                                   [carotene_admin_connection] 
                                   },
                                   {router,
                                    {router, start_link, []},

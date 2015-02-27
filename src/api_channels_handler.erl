@@ -26,7 +26,7 @@ channel_to_json(Req, Channel) ->
     {Body, Req, Channel}.
 
 resource_exists(Req, _State) ->
-    {ok, Exs} = gen_server:call(admin_serv, get_subscribed),
+    {ok, Exs} = gen_server:call(carotene_admin_connection, get_subscribed),
     case cowboy_req:binding(channel, Req) of
         undefined ->
             {true, Req, {index, Exs}};
