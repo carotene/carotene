@@ -89,14 +89,14 @@ process_message([{<<"subscribe">>, Channel}], State = #state{subscribers=Subs, u
     State#state{subscribers = NewSubs};
 
 process_message([{<<"channel">>, Channel}, {<<"publish">>, Message}], State = #state{publishers=Pubs, user_id=UserId, user_data=UserData}) ->
-    CompleteMessage = {publish, jsx:encode([{<<"message">>, Message},
+    CompleteMessage = jsx:encode([{<<"message">>, Message},
                                             {<<"channel">>, Channel},
                                             {<<"user_id">>, UserId},
                                             {<<"user_data">>, UserData}
-                                           ])},
+                                           ]),
     NewPubs = case dict:find(Channel, Pubs) of
                   {ok, PublisherPid} -> 
-                      gen_server:call(PublisherPid, CompleteMessage),
+                      publisher:publish(PublisherPid, CompleteMessage),
                       Pubs;
                   error -> 
                       {ok, PublisherPid} = publisher_sup:start_child([Channel, UserId, self()]),
