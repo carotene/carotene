@@ -163,8 +163,8 @@ subscribe(Connection) ->
     gen_server:cast(Connection, {process_message, jsx:encode([{<<"subscribe">>, <<"room1">>}])}),
     % wait a bit for cast to work
     timer:sleep(10),
-    meck:validate(subscriber),
-    meck:validate(subscriber_sup),
+    ?assertEqual(true, meck:validate(subscriber)),
+    ?assertEqual(true, meck:validate(subscriber_sup)),
     meck:unload(subscriber),
     meck:unload(subscriber_sup).
 
@@ -207,8 +207,8 @@ try_failed_subscribe(Connection) ->
                   Message -> Message
               after 2000 -> false
               end,
-    meck:validate(subscriber),
-    meck:validate(subscriber_sup),
+    ?assertEqual(true, meck:validate(subscriber)),
+    ?assertEqual(true, meck:validate(subscriber_sup)),
     meck:unload(subscriber),
     meck:unload(subscriber_sup),
     ?_assertEqual(Expected, Obtained).
@@ -221,8 +221,8 @@ try_succesful_publish(Connection) ->
     gen_server:cast(Connection, {process_message, jsx:encode([{<<"channel">>, <<"room1">>}, {<<"publish">>, <<"hi">>}])}),
     % wait a bit for cast to work
     timer:sleep(10),
-    meck:validate(publisher),
-    meck:validate(publisher_sup),
+    ?assertEqual(true, meck:validate(publisher)),
+    ?assertEqual(true, meck:validate(publisher_sup)),
     meck:unload(publisher),
     meck:unload(publisher_sup),
     % heavy work in meck
@@ -311,7 +311,7 @@ try_subscribe_then_authenticate_success(Connection) ->
                   Message -> Message
               after 2000 -> false
               end,
-    meck:validate(subscriber),
+    ?assertEqual(true, meck:validate(subscriber)),
     meck:unload(httpc),
     meck:unload(subscriber),
     ?_assertEqual(Expected, Obtained).
@@ -327,7 +327,7 @@ try_ask_presence(Connection) ->
                   Message -> Message
               after 2000 -> false
               end,
-    meck:validate(carotene_presence),
+    ?assertEqual(true, meck:validate(carotene_presence)),
     meck:unload(carotene_presence),
     ?_assertEqual(Expected, Obtained).
 

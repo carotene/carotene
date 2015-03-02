@@ -28,12 +28,12 @@ init([]) ->
                                    supervisor,
                                    [broker_sup]
                                   },
-                                  {http_initializer,
-                                   {http_initializer, start_link, [self()]},
+                                  {carotene_http,
+                                   {carotene_http, start_link, []},
                                    permanent,
                                    infinity,
                                    worker,
-                                   [http_initializer] 
+                                   [carotene_http] 
                                   },
                                   {connection_sup,
                                    {connection_sup, start_link, []},

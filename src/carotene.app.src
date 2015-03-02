@@ -9,6 +9,7 @@
                   cowboy,
                   rabbit_common,
                   amqp_client,
+                  meck,
                   inets
                  ]},
   {mod, { carotene_app, []}},

@@ -56,7 +56,7 @@ try_publish(Connection) ->
     meck:new(router),
     meck:expect(router, publish, fun(_, _) -> ok end),
     Res = gen_server:call(Connection, {publish, {channel, <<"room1">>}, {message, <<"hi there">>}}),
-    meck:validate(router),
+    ?assertEqual(true, meck:validate(router)),
     meck:unload(router),
     ?_assertEqual(ok, Res).
 
@@ -64,7 +64,7 @@ try_subscribe(Connection) ->
     meck:new(router),
     meck:expect(router, subscribe, fun(<<"room1">>, _Connection, server) -> ok end),
     Res = gen_server:call(Connection, {subscribe, {channel, <<"room1">>}}),
-    meck:validate(router),
+    ?assertEqual(true, meck:validate(router)),
     meck:unload(router),
     ?_assertEqual(ok, Res).
 
@@ -76,6 +76,6 @@ try_subscribe_and_die(Connection) ->
     Res = gen_server:call(Connection, {subscribe, {channel, <<"room1">>}}),
 
     gen_server:call(Connection, stop),
-    meck:validate(router),
+    ?assertEqual(true, meck:validate(router)),
     meck:unload(router),
     ?_assertEqual(ok, Res).
