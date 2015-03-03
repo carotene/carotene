@@ -9,7 +9,15 @@
 -export([from_json/2]).
 
 init(Req, Opts) ->
-    {cowboy_rest, Req, Opts}.
+    {IP, _Port} = cowboy_req:peer(Req),
+    case carotene_api_authorization:authorize(IP) of
+        true -> {cowboy_rest, Req, Opts};
+        false ->
+            {ok, Req2} = cowboy_req:reply(500, [
+                                                {<<"content-type">>, <<"text/plain">>}
+                                               ], "You are not authorized to access this endpoint. Check your configuration.", Req),
+            {shutdown, Req2, no_state}
+    end.
 
 allowed_methods(Req, State) ->
     {[<<"POST">>], Req, State}.

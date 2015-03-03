@@ -106,12 +106,15 @@ process_message([{<<"channel">>, Channel}, {<<"publish">>, Message}], State = #s
               end,
     State#state{publishers = NewPubs};
 
-process_message([{<<"authenticate">>, AssumedUserId}, {<<"token">>, Token}], State ) ->
+process_message([{<<"authenticate">>, AssumedUserId}, {<<"token">>, Token}], State = #state{user_id = anonymous} ) ->
     case application:get_env(carotene, authenticate_url) of
         undefined -> self() ! {just_send, <<"Authentication error: no authentication_url in config">>},
                      State; 
         {ok, AuthenticateUrl} -> try_authenticate(AuthenticateUrl, AssumedUserId, Token, State)
     end;
+process_message([{<<"authenticate">>, _AssumedUserId}, {<<"token">>, _Token}], State = #state{user_id = _UserId} ) ->
+    self() ! {just_send, <<"Authentication error: already authenticated">>},
+    State;
 
 process_message([{<<"presence">>, Channel}], State = #state{subscribers=Subs}) ->
     case application:get_env(carotene, presence) of
@@ -155,4 +158,4 @@ update_users(UserId, Subs, Pubs) ->
     dict:map(fun(_Channel, Sub) -> 
                      subscriber:update_user(Sub, UserId) end, Subs),
     dict:map(fun(_Channel, Pub) -> 
-                     subscriber:update_user(Pub, UserId) end, Pubs).
+                     publisher:update_user(Pub, UserId) end, Pubs).
