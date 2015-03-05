@@ -22,6 +22,7 @@ stop(Pid) ->
 
 init([]) ->
     State = #state{subscribers = []},
+    self() ! subscribe_to_channels,
     {ok, State}.
 
 handle_call({publish, {channel, Channel}, {message, Message}}, _From, State) ->
@@ -32,14 +33,6 @@ handle_call({publish, {channel, Channel}, {message, Message}}, _From, State) ->
     router:publish(Payload, Channel),
 
     {reply, ok, State};
-
-handle_call({subscribe, {channel, Channel}}, _From, State=#state{subscribers=Subs}) ->
-    subscribe(Channel),
-    NewSubs = case lists:member(Channel, Subs) of
-                true -> Subs;
-                false -> [Channel| Subs]
-            end,
-    {reply, ok, State#state{subscribers = NewSubs}};
 
 handle_call(get_subscribed, _From, State=#state{subscribers=Subs}) ->
     {reply, {ok, Subs}, State};
@@ -61,6 +54,13 @@ handle_info({received_message, Msg, channel, Channel}, State) ->
     end,
     {noreply, State};
 
+handle_info(subscribe_to_channels, State = #state{subscribers=Subs}) ->
+    NewSubs = case application:get_env(carotene, subscribed_channels) of
+               {ok, Channels} -> subscribe(Channels, Subs);
+               _ -> Subs
+           end,
+    {noreply, State#state{subscribers = NewSubs}};
+
 handle_info(stop, State) ->
     {stop, shutdown, State};
 
@@ -73,5 +73,15 @@ terminate(_Reason, #state{subscribers=Subs}) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
-subscribe(Channel) ->
-    router:subscribe(Channel, self(), server).
+subscribe([], Subs) -> Subs;
+subscribe([Channel|Channels], Subs) ->
+    BinaryChannel = case is_list(Channel) of
+                        true -> list_to_binary(Channel);
+                        false -> Channel
+                    end,
+    NewSubs = case lists:member(BinaryChannel, Subs) of
+                  true -> Subs;
+                  false -> router:subscribe(BinaryChannel, self(), server),
+                           [BinaryChannel| Subs]
+              end,
+    subscribe(Channels, NewSubs).
