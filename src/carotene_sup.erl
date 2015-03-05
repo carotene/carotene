@@ -28,13 +28,6 @@ init([]) ->
                                    supervisor,
                                    [broker_sup]
                                   },
-                                  {carotene_http,
-                                   {carotene_http, start_link, []},
-                                   permanent,
-                                   infinity,
-                                   worker,
-                                   [carotene_http] 
-                                  },
                                   {connection_sup,
                                    {connection_sup, start_link, []},
                                    permanent,
@@ -56,6 +49,20 @@ init([]) ->
                                    supervisor,
                                    [subscriber_sup] 
                                   },
+                                  {carotene_http,
+                                   {carotene_http, start_link, []},
+                                   permanent,
+                                   infinity,
+                                   worker,
+                                   [carotene_http] 
+                                  },
+                                  {router,
+                                   {router, start_link, []},
+                                   permanent,
+                                   infinity,
+                                   worker,
+                                   [router] 
+                                  },
                                   {carotene_presence,
                                    {carotene_presence, start_link, []},
                                    permanent,
@@ -69,12 +76,5 @@ init([]) ->
                                    infinity,
                                    worker,
                                    [carotene_admin_connection] 
-                                  },
-                                  {router,
-                                   {router, start_link, []},
-                                   permanent,
-                                   infinity,
-                                   worker,
-                                   [router] 
                                   }
                                  ]} }.

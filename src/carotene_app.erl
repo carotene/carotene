@@ -4,7 +4,7 @@
 
 -behaviour(application).
 
--export([start/0, stop/0, join_cluster/1, cluster_status/0]).
+-export([start/0, stop/0, join_cluster/1, cluster_status/0, join_cluster_nodes/0]).
 %% Application callbacks
 -export([start/2, stop/1]).
 
@@ -14,7 +14,10 @@
 
 
 start(_StartType, _StartArgs) ->
-    carotene_sup:start_link().
+    Res = carotene_sup:start_link(),
+    join_cluster_nodes(),
+    Res.
+
 
 stop(_State) ->
     ok.
@@ -40,9 +43,30 @@ start() ->
     application:start(inets),
     application:start(carotene).
 
-join_cluster(Node) ->
-    net_kernel:connect_node(Node),
+join_cluster_nodes([]) -> ok;
+join_cluster_nodes([Node|Nodes]) ->
+    join_cluster(Node),
+    join_cluster_nodes(Nodes).
+
+join_cluster_nodes() ->
+    case application:get_env(carotene, nodes_in_cluster) of
+        {ok, Nodes} ->
+            join_cluster_nodes(Nodes);
+        _ -> 
+            % not a cluster
+            ok
+    end,
     ok.
+
+join_cluster(Node) ->
+    MyNode = node(),
+    case Node of
+        MyNode -> 
+            ok;
+        _ ->
+            net_kernel:connect_node(Node),
+            ok
+    end.
 
 cluster_status() ->
     [node()| nodes()].
