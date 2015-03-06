@@ -1,0 +1,11 @@
+## Name of the node
+-sname carotene@localhost
+
+## Cookie for distributed erlang. Change it to a random string. All nodes in the same cluster must have the same cookie.
+-setcookie carotene
+
+## Increase number of concurrent ports/sockets
+-env ERL_MAX_PORTS 64000
+
+## Raise the default erlang process limit
++P 256000

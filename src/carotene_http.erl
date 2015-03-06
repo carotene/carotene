@@ -49,7 +49,8 @@ start_http(Dispatch) ->
                                                     {certfile, "/tmp/server.crt"},
                                                     {keyfile, "/tmp/server.key"}
                                                    ],
-                                        [{env, [{dispatch, Dispatch}]}]);
+                                        [{env, [{dispatch, Dispatch}]}]),
+            io:format("HTTP server listening to port ~p~n", [Port]);
         {ok, SSLConf} -> start_https(Dispatch, Port, SSLConf)
     end.
 
@@ -74,7 +75,9 @@ start_https(Dispatch, Port, SSLConf) ->
                                             {certfile, Certfile},
                                             {keyfile, Keyfile}
                                            ],
-                                [{env, [{dispatch, Dispatch}]}]).
+                                [{env, [{dispatch, Dispatch}]}]),
+    io:format("HTTPS server listening to port ~p~n", [Port])
+    .
 
 find_ssl_conf(_Option, []) -> error;
 find_ssl_conf(Option, [{Option, Value}|_SSLConf]) -> Value;

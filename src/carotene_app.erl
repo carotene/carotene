@@ -14,8 +14,11 @@
 
 
 start(_StartType, _StartArgs) ->
+    io:format("Starting Carotene node ~p~n", [node()]),
     Res = carotene_sup:start_link(),
     join_cluster_nodes(),
+    io:format("Node started ~p~n", [node()]),
+    io:format("Nodes in cluster ~p~n", [cluster_status()]),
     Res.
 
 
