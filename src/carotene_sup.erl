@@ -28,12 +28,12 @@ init([]) ->
                                    supervisor,
                                    [broker_sup]
                                   },
-                                  {connection_sup,
-                                   {connection_sup, start_link, []},
+                                  {carotene_connection_sup,
+                                   {carotene_connection_sup, start_link, []},
                                    permanent,
                                    infinity,
                                    supervisor,
-                                   [connection_sup] 
+                                   [carotene_connection_sup] 
                                   },
                                   {publisher_sup,
                                    {publisher_sup, start_link, []},

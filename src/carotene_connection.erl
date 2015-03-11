@@ -1,4 +1,4 @@
--module(connection).
+-module(carotene_connection).
 
 -behaviour(gen_server).
 

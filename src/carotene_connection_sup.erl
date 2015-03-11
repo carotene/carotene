@@ -1,4 +1,4 @@
--module(connection_sup).
+-module(carotene_connection_sup).
 
 -behaviour(supervisor).
 
@@ -21,10 +21,10 @@ start_link() ->
 
 init([]) ->
     {ok, { {simple_one_for_one, 5, 10}, [
-             {connection,
-              {connection, start_link, []},
+             {carotene_connection,
+              {carotene_connection, start_link, []},
               temporary,
               infinity,
               worker,
-              [connection] 
+              [carotene_connection] 
              } ]} }.

@@ -1,4 +1,4 @@
--module(connection_tests).
+-module(carotene_connection_tests).
 
 -include_lib("eunit/include/eunit.hrl").
 
@@ -149,11 +149,11 @@ cannot_ask_for_presence_when_no_subscribed_test_() ->
 
 %% Helpers
 start_connection() ->
-    {ok, Connection} = connection:start(self()),
+    {ok, Connection} = carotene_connection:start(self()),
     Connection.
 
 stop(Connection) ->
-    connection:stop(Connection).
+    carotene_connection:stop(Connection).
 
 subscribe(Connection) ->
     meck:new(subscriber_sup, [passthrough]),
@@ -170,7 +170,7 @@ subscribe(Connection) ->
 
 %% Tests
 start_and_test_running() ->
-    Res = connection:start(self()),
+    Res = carotene_connection:start(self()),
     ?_assertMatch({ok, _}, Res).
 
 try_process_non_json(Connection) ->
