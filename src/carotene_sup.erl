@@ -56,12 +56,12 @@ init([]) ->
                                    worker,
                                    [carotene_http] 
                                   },
-                                  {router,
-                                   {router, start_link, []},
+                                  {carotene_router,
+                                   {cerotene_router, start_link, []},
                                    permanent,
                                    infinity,
                                    worker,
-                                   [router] 
+                                   [carotene_router] 
                                   },
                                   {carotene_presence,
                                    {carotene_presence, start_link, []},

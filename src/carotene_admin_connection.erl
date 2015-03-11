@@ -30,7 +30,7 @@ handle_call({publish, {channel, Channel}, {message, Message}}, _From, State) ->
                           {<<"channel">>, Channel}, 
                           {<<"from_server">>, <<"true">>}
                          ]),
-    router:publish(Payload, Channel),
+    carotene_router:publish(Payload, Channel),
 
     {reply, ok, State};
 
@@ -68,7 +68,7 @@ handle_info(_Info, State) ->
     {stop, {unhandled_message, _Info}, State}.
 
 terminate(_Reason, #state{subscribers=Subs}) ->
-    router:unsubscribe_channels(Subs, self(), server). 
+    carotene_router:unsubscribe_channels(Subs, self(), server). 
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
@@ -81,7 +81,7 @@ subscribe([Channel|Channels], Subs) ->
                     end,
     NewSubs = case lists:member(BinaryChannel, Subs) of
                   true -> Subs;
-                  false -> router:subscribe(BinaryChannel, self(), server),
+                  false -> carotene_router:subscribe(BinaryChannel, self(), server),
                            [BinaryChannel| Subs]
               end,
     subscribe(Channels, NewSubs).

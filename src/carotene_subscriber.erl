@@ -49,7 +49,7 @@ handle_cast(_Message, State) ->
     {noreply, State}.
 
 terminate(_Reason, #state{channel = Channel, user_id = UserId}) ->
-    ok = gen_server:cast(router, {unsubscribe, Channel, from, self(), user_id, UserId}).
+    ok = gen_server:cast(carotene_router, {unsubscribe, Channel, from, self(), user_id, UserId}).
 
 code_change(_OldVsn, State, _Extra) ->
     State.
@@ -82,4 +82,4 @@ can_subscribe(UserId, Channel) ->
     end.
 
 subscribe_in_router(Channel, UserId) ->
-    ok = gen_server:cast(router, {subscribe, Channel, from, self(), user_id, UserId}).
+    ok = gen_server:cast(carotene_router, {subscribe, Channel, from, self(), user_id, UserId}).

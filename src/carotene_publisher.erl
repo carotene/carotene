@@ -33,12 +33,12 @@ handle_info(shutdown, State) ->
 handle_call({publish, Message}, _From, State = #state{channel = Channel, user_id = UserId}) ->
     case already_authorized of
         true -> 
-                gen_server:cast(router, {publish,  Message, channel, Channel}),
+                gen_server:cast(carotene_router, {publish,  Message, channel, Channel}),
                 {reply, ok, State};
         _ ->
             case can_publish(UserId, Channel) of
                 true ->
-                    gen_server:cast(router, {publish,  Message, channel, Channel}),
+                    gen_server:cast(carotene_router, {publish,  Message, channel, Channel}),
                     {reply, ok, State#state{already_authorized = true}};
                 Error -> {reply, {error, Error}, State}
             end

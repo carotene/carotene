@@ -1,4 +1,4 @@
--module(router).
+-module(carotene_router).
 
 -behaviour(gen_server).
 
@@ -92,7 +92,7 @@ broadcast(_, []) ->
     true.
 
 broadcast_cluster(Msg, [Node|Nodes]) ->
-    gen_server:cast({router, Node}, Msg),
+    gen_server:cast({carotene_router, Node}, Msg),
     broadcast_cluster(Msg, Nodes);
 broadcast_cluster(_, []) ->
     true.

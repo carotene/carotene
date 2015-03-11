@@ -22,7 +22,7 @@ handle_info(shutdown, State) ->
     {stop, shutdown, State}.
 
 handle_call({presence, Channel}, _From, State) ->
-    {UsersDup, _} = rpc:multicall(router, local_presence, [Channel]),
+    {UsersDup, _} = rpc:multicall(carotene_router, local_presence, [Channel]),
     UsersSub = sets:to_list(sets:from_list(lists:append(UsersDup))),
     {reply, UsersSub, State}.
 
