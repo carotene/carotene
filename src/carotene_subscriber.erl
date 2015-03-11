@@ -1,4 +1,4 @@
--module(subscriber).
+-module(carotene_subscriber).
 
 -behaviour(gen_server).
 

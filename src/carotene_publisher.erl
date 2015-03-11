@@ -1,4 +1,4 @@
--module(publisher).
+-module(carotene_publisher).
 
 -behaviour(gen_server).
 

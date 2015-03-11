@@ -35,19 +35,19 @@ init([]) ->
                                    supervisor,
                                    [carotene_connection_sup] 
                                   },
-                                  {publisher_sup,
-                                   {publisher_sup, start_link, []},
+                                  {carotene_publisher_sup,
+                                   {carotene_publisher_sup, start_link, []},
                                    temporary,
                                    infinity,
                                    supervisor,
-                                   [publisher_sup] 
+                                   [carotene_publisher_sup] 
                                   },
-                                  {subscriber_sup,
-                                   {subscriber_sup, start_link, []},
+                                  {carotene_subscriber_sup,
+                                   {carotene_subscriber_sup, start_link, []},
                                    temporary,
                                    infinity,
                                    supervisor,
-                                   [subscriber_sup] 
+                                   [carotene_subscriber_sup] 
                                   },
                                   {carotene_http,
                                    {carotene_http, start_link, []},

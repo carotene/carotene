@@ -1,4 +1,4 @@
--module(publisher_tests).
+-module(carotene_publisher_tests).
 
 -include_lib("eunit/include/eunit.hrl").
 
@@ -29,7 +29,7 @@ publish_asks_for_auth_test_() ->
 
 %% Helpers
 start(UserId) ->
-    Res = publisher:start(<<"room1">>, UserId, self()),
+    Res = carotene_publisher:start(<<"room1">>, UserId, self()),
     {ok, Pid} = Res,
     Pid.
 
@@ -43,12 +43,12 @@ start_as_anonymous_with_config_level_anonymous() ->
     start(<<"user1">>).
 
 stop(Publisher) ->
-    publisher:stop(Publisher).
+    carotene_publisher:stop(Publisher).
 
 %% Tests
 start_and_test_running() ->
     application:set_env(carotene, publish_authorization, nothing),
-    Res = publisher:start(<<"room1">>, <<"user1">>, self()),
+    Res = carotene_publisher:start(<<"room1">>, <<"user1">>, self()),
     ?_assertMatch({ok, _}, Res).
 
 try_send_success(Publisher) ->

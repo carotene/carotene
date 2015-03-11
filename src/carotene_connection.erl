@@ -81,8 +81,8 @@ code_change(_OldVsn, State, _Extra) ->
 process_message([{<<"subscribe">>, Channel}], State = #state{subscribers=Subs, user_id=UserId}) ->
     NewSubs = case dict:find(Channel, Subs) of
                   error -> 
-                      {ok, SubscriberPid} = subscriber_sup:start_child([Channel, UserId, self()]),
-                      case subscriber:subscribe(SubscriberPid) of
+                      {ok, SubscriberPid} = carotene_subscriber_sup:start_child([Channel, UserId, self()]),
+                      case carotene_subscriber:subscribe(SubscriberPid) of
                           ok -> dict:store(Channel, SubscriberPid, Subs);
                           {error, Error} -> self() ! {just_send, Error},
                                             Subs
@@ -101,11 +101,11 @@ process_message([{<<"channel">>, Channel}, {<<"publish">>, Message}], State = #s
                                  ]),
     NewPubs = case dict:find(Channel, Pubs) of
                   {ok, PublisherPid} -> 
-                      publisher:publish(PublisherPid, CompleteMessage),
+                      carotene_publisher:publish(PublisherPid, CompleteMessage),
                       Pubs;
                   error -> 
-                      {ok, PublisherPid} = publisher_sup:start_child([Channel, UserId, self()]),
-                      publisher:publish(PublisherPid, CompleteMessage),
+                      {ok, PublisherPid} = carotene_publisher_sup:start_child([Channel, UserId, self()]),
+                      carotene_publisher:publish(PublisherPid, CompleteMessage),
                       dict:store(Channel, PublisherPid, Pubs)
 
               end,
@@ -163,6 +163,6 @@ try_authenticate(AuthenticateUrl, AssumedUserId, Token, State = #state{subscribe
 
 update_users(UserId, Subs, Pubs) ->
     dict:map(fun(_Channel, Sub) -> 
-                     subscriber:update_user(Sub, UserId) end, Subs),
+                     carotene_subscriber:update_user(Sub, UserId) end, Subs),
     dict:map(fun(_Channel, Pub) -> 
-                     publisher:update_user(Pub, UserId) end, Pubs).
+                     carotene_publisher:update_user(Pub, UserId) end, Pubs).

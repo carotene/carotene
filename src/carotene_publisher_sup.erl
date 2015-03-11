@@ -1,4 +1,4 @@
--module(subscriber_sup).
+-module(carotene_publisher_sup).
 
 -behaviour(supervisor).
 
@@ -25,10 +25,10 @@ start_child(Args) ->
 
 init([]) ->
     {ok, { {simple_one_for_one, 5, 10}, [
-             {subscriber,
-              {subscriber, start_link, []},
+             {carotene_publisher,
+              {carotene_publisher, start_link, []},
               temporary,
               infinity,
               worker,
-              [mgs_queue_serv] 
+              [carotene_publisher] 
              } ]} }.

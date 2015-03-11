@@ -24,8 +24,8 @@ start() ->
     {ok, Pid} = Res,
     Pid.
 
-stop(Publisher) ->
-    publisher:stop(Publisher).
+stop(Connection) ->
+    carotene_admin_connection:stop(Connection).
 
 %% Tests
 start_and_test_running() ->

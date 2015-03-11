@@ -5,7 +5,7 @@
 -export([websocket_info/3]).
 
 init(Req, _Opts) ->
-    {ok, ConnectionPid} = supervisor:start_child(connection_sup, [self()]),
+    {ok, ConnectionPid} = supervisor:start_child(carotene_connection_sup, [self()]),
     {cowboy_websocket, Req, ConnectionPid}.
 
 websocket_handle({text, Data}, Req, Connection) ->

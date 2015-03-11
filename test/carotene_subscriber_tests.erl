@@ -1,4 +1,4 @@
--module(subscriber_tests).
+-module(carotene_subscriber_tests).
 
 -include_lib("eunit/include/eunit.hrl").
 
@@ -29,7 +29,7 @@ subscribe_auth_config_test_() ->
 %
 %% Helpers
 start(UserId) ->
-    Res = subscriber:start(<<"room1">>, UserId, self()),
+    Res = carotene_subscriber:start(<<"room1">>, UserId, self()),
     {ok, Pid} = Res,
     Pid.
 
@@ -43,12 +43,12 @@ start_as_anonymous_with_config_level_anonymous() ->
     start(<<"user1">>).
 
 stop(Subscriber) ->
-    subscriber:stop(Subscriber).
+    carotene_subscriber:stop(Subscriber).
 
 %% Tests
 start_and_test_running() ->
     application:set_env(carotene, subscribe_authorization, nothing),
-    Res = subscriber:start(<<"room1">>, <<"user1">>, self()),
+    Res = carotene_subscriber:start(<<"room1">>, <<"user1">>, self()),
     ?_assertMatch({ok, _}, Res).
 
 try_subscribe_success(Subscriber) ->

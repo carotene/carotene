@@ -156,17 +156,17 @@ stop(Connection) ->
     carotene_connection:stop(Connection).
 
 subscribe(Connection) ->
-    meck:new(subscriber_sup, [passthrough]),
-    meck:expect(subscriber_sup, start_child, fun(_Args) -> {ok, somepid} end),
-    meck:new(subscriber, [passthrough]),
-    meck:expect(subscriber, subscribe, fun(_Somepid) -> ok end),
+    meck:new(carotene_subscriber_sup, [passthrough]),
+    meck:expect(carotene_subscriber_sup, start_child, fun(_Args) -> {ok, somepid} end),
+    meck:new(carotene_subscriber, [passthrough]),
+    meck:expect(carotene_subscriber, subscribe, fun(_Somepid) -> ok end),
     gen_server:cast(Connection, {process_message, jsx:encode([{<<"subscribe">>, <<"room1">>}])}),
     % wait a bit for cast to work
     timer:sleep(10),
-    ?assertEqual(true, meck:validate(subscriber)),
-    ?assertEqual(true, meck:validate(subscriber_sup)),
-    meck:unload(subscriber),
-    meck:unload(subscriber_sup).
+    ?assertEqual(true, meck:validate(carotene_subscriber)),
+    ?assertEqual(true, meck:validate(carotene_subscriber_sup)),
+    meck:unload(carotene_subscriber),
+    meck:unload(carotene_subscriber_sup).
 
 %% Tests
 start_and_test_running() ->
@@ -197,34 +197,34 @@ try_succesful_subscribe(Connection) ->
     ?_assertEqual(true, true).
 
 try_failed_subscribe(Connection) ->
-    meck:new(subscriber_sup, [passthrough]),
-    meck:expect(subscriber_sup, start_child, fun(_Args) -> {ok, somepid} end),
-    meck:new(subscriber, [passthrough]),
-    meck:expect(subscriber, subscribe, fun(_Somepid) -> {error, <<"someerror">>} end),
+    meck:new(carotene_subscriber_sup, [passthrough]),
+    meck:expect(carotene_subscriber_sup, start_child, fun(_Args) -> {ok, somepid} end),
+    meck:new(carotene_subscriber, [passthrough]),
+    meck:expect(carotene_subscriber, subscribe, fun(_Somepid) -> {error, <<"someerror">>} end),
     gen_server:cast(Connection, {process_message, jsx:encode([{<<"subscribe">>, <<"room1">>}])}),
     Expected = {text, jsx:encode([{<<"type">>, <<"info">>}, {<<"payload">>, <<"someerror">>}])},
     Obtained = receive
                   Message -> Message
               after 2000 -> false
               end,
-    ?assertEqual(true, meck:validate(subscriber)),
-    ?assertEqual(true, meck:validate(subscriber_sup)),
-    meck:unload(subscriber),
-    meck:unload(subscriber_sup),
+    ?assertEqual(true, meck:validate(carotene_subscriber)),
+    ?assertEqual(true, meck:validate(carotene_subscriber_sup)),
+    meck:unload(carotene_subscriber),
+    meck:unload(carotene_subscriber_sup),
     ?_assertEqual(Expected, Obtained).
 
 try_succesful_publish(Connection) ->
-    meck:new(publisher_sup, [passthrough]),
-    meck:expect(publisher_sup, start_child, fun(_Args) -> {ok, somepid} end),
-    meck:new(publisher),
-    meck:expect(publisher, publish, fun(_Somepid, _SomeMessage) -> ok end),
+    meck:new(carotene_publisher_sup, [passthrough]),
+    meck:expect(carotene_publisher_sup, start_child, fun(_Args) -> {ok, somepid} end),
+    meck:new(carotene_publisher),
+    meck:expect(carotene_publisher, publish, fun(_Somepid, _SomeMessage) -> ok end),
     gen_server:cast(Connection, {process_message, jsx:encode([{<<"channel">>, <<"room1">>}, {<<"publish">>, <<"hi">>}])}),
     % wait a bit for cast to work
     timer:sleep(10),
-    ?assertEqual(true, meck:validate(publisher)),
-    ?assertEqual(true, meck:validate(publisher_sup)),
-    meck:unload(publisher),
-    meck:unload(publisher_sup),
+    ?assertEqual(true, meck:validate(carotene_publisher)),
+    ?assertEqual(true, meck:validate(carotene_publisher_sup)),
+    meck:unload(carotene_publisher),
+    meck:unload(carotene_publisher_sup),
     % heavy work in meck
     ?_assertEqual(true, true).
 
@@ -297,8 +297,8 @@ try_authenticate_success(Connection) ->
 try_subscribe_then_authenticate_success(Connection) ->
     subscribe(Connection),
     meck:new(httpc),
-    meck:new(subscriber, [passthrough]),
-    meck:expect(subscriber, update_user, fun(_Somepid, _UserId) -> ok end),
+    meck:new(carotene_subscriber, [passthrough]),
+    meck:expect(carotene_subscriber, update_user, fun(_Somepid, _UserId) -> ok end),
     gen_server:cast(Connection, {process_message, jsx:encode([{<<"subscribe">>, <<"room1">>}])}),
     % wait a bit for cast to work
     timer:sleep(10),
@@ -311,9 +311,9 @@ try_subscribe_then_authenticate_success(Connection) ->
                   Message -> Message
               after 2000 -> false
               end,
-    ?assertEqual(true, meck:validate(subscriber)),
+    ?assertEqual(true, meck:validate(carotene_subscriber)),
     meck:unload(httpc),
-    meck:unload(subscriber),
+    meck:unload(carotene_subscriber),
     ?_assertEqual(Expected, Obtained).
 
 try_ask_presence(Connection) ->
