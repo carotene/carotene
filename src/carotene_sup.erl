@@ -21,12 +21,12 @@ start_link() ->
 
 init([]) ->
     {ok, { {one_for_one, 5, 10}, [
-                                  {broker_sup,
-                                   {broker_sup, start_link, []},
+                                  {carotene_broker_sup,
+                                   {carotene_broker_sup, start_link, []},
                                    permanent,
                                    infinity,
                                    supervisor,
-                                   [broker_sup]
+                                   [carotene_broker_sup]
                                   },
                                   {carotene_connection_sup,
                                    {carotene_connection_sup, start_link, []},
@@ -57,7 +57,7 @@ init([]) ->
                                    [carotene_http] 
                                   },
                                   {carotene_router,
-                                   {cerotene_router, start_link, []},
+                                   {carotene_router, start_link, []},
                                    permanent,
                                    infinity,
                                    worker,

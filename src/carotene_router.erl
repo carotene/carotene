@@ -98,8 +98,12 @@ broadcast_cluster(_, []) ->
     true.
 
 broker_publish(Msg, Channel) ->
-    {_BrokerType, Broker} = broker_sup:get_broker(),
-    gen_server:cast(Broker, {publish, Msg, channel, Channel}).
+    case broker_sup:get_broker() of
+        undefined ->
+            ok;
+        {_BrokerType, Broker} -> 
+            gen_server:cast(Broker, {publish, Msg, channel, Channel})
+    end.
 
 local_presence(Channel) ->
     gen_server:call(?MODULE, {local_presence, Channel}).
