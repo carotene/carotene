@@ -10,6 +10,7 @@
                   rabbit_common,
                   amqp_client,
                   meck,
+                  jsx,
                   inets
                  ]},
   {mod, { carotene_app, []}},

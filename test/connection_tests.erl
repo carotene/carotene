@@ -175,7 +175,7 @@ start_and_test_running() ->
 
 try_process_non_json(Connection) ->
     gen_server:cast(Connection, {process_message, <<"something non jsoney">>}),
-    Expected = {text, jsx:encode([{<<"info">>, <<"Non JSON message received">>}])},
+    Expected = {text, jsx:encode([{<<"type">>, <<"info">>}, {<<"payload">>, <<"Non JSON message received">>}])},
     Obtained = receive
                   Message -> Message
               after 2000 -> false
@@ -184,7 +184,7 @@ try_process_non_json(Connection) ->
 
 try_process_unknown_message(Connection) ->
     gen_server:cast(Connection, {process_message, jsx:encode([{<<"I just want to">>, <<"chat a bit about life">>}])}),
-    Expected = {text, jsx:encode([{<<"info">>, <<"Unknown message received">>}])},
+    Expected = {text, jsx:encode([{<<"type">>, <<"info">>}, {<<"payload">>, <<"Unknown message received">>}])},
     Obtained = receive
                   Message -> Message
               after 2000 -> false
@@ -202,7 +202,7 @@ try_failed_subscribe(Connection) ->
     meck:new(subscriber, [passthrough]),
     meck:expect(subscriber, subscribe, fun(_Somepid) -> {error, <<"someerror">>} end),
     gen_server:cast(Connection, {process_message, jsx:encode([{<<"subscribe">>, <<"room1">>}])}),
-    Expected = {text, jsx:encode([{<<"info">>, <<"someerror">>}])},
+    Expected = {text, jsx:encode([{<<"type">>, <<"info">>}, {<<"payload">>, <<"someerror">>}])},
     Obtained = receive
                   Message -> Message
               after 2000 -> false
@@ -231,7 +231,7 @@ try_succesful_publish(Connection) ->
 try_authenticate_no_config(Connection) ->
     application:unset_env(carotene, authenticate_url),
     gen_server:cast(Connection, {process_message, jsx:encode([{<<"authenticate">>, <<"user1">>}, {<<"token">>, <<"O_O">>}])}),
-    Expected = {text, jsx:encode([{<<"info">>, <<"Authentication error: no authentication_url in config">>}])},
+    Expected = {text, jsx:encode([{<<"type">>, <<"info">>}, {<<"payload">>, <<"Authentication error: no authentication_url in config">>}])},
     Obtained = receive
                   Message -> Message
               after 2000 -> false
@@ -244,7 +244,7 @@ try_authenticate_bad_response_from_server(Connection) ->
     meck:expect(httpc, request, fun(post, _, _, _) ->
                                         <<"HAHAHA">> end),
     gen_server:cast(Connection, {process_message, jsx:encode([{<<"authenticate">>, <<"user1">>}, {<<"token">>, <<"O_O">>}])}),
-    Expected = {text, jsx:encode([{<<"info">>, <<"Authentication error: Bad response from server">>}])},
+    Expected = {text, jsx:encode([{<<"type">>, <<"info">>}, {<<"payload">>, <<"Authentication error: Bad response from server">>}])},
     Obtained = receive
                   Message -> Message
               after 2000 -> false
@@ -258,7 +258,7 @@ try_authenticate_bad_json_from_server(Connection) ->
     meck:expect(httpc, request, fun(post, _, _, _) ->
                                         {ok, {{v, 200, rp}, h, binary:bin_to_list(<<"you are authenticated, but this is not a json, that is how we roll">>)}} end),
     gen_server:cast(Connection, {process_message, jsx:encode([{<<"authenticate">>, <<"user1">>}, {<<"token">>, <<"O_O">>}])}),
-    Expected = {text, jsx:encode([{<<"info">>, <<"Authentication error: Bad JSON response from server">>}])},
+    Expected = {text, jsx:encode([{<<"type">>, <<"info">>}, {<<"payload">>, <<"Authentication error: Bad JSON response from server">>}])},
     Obtained = receive
                   Message -> Message
               after 2000 -> false
@@ -272,7 +272,7 @@ try_authenticate_fails(Connection) ->
     meck:expect(httpc, request, fun(post, _, _, _) ->
                                         {ok, {{v, 200, rp}, h, binary:bin_to_list(jsx:encode([{<<"authenticated">>, false}]))}} end),
     gen_server:cast(Connection, {process_message, jsx:encode([{<<"authenticate">>, <<"user1">>}, {<<"token">>, <<"O_O">>}])}),
-    Expected = {text, jsx:encode([{<<"info">>, <<"Authentication failed">>}])},
+    Expected = {text, jsx:encode([{<<"type">>, <<"info">>}, {<<"payload">>, <<"Authentication failed">>}])},
     Obtained = receive
                   Message -> Message
               after 2000 -> false
@@ -286,7 +286,7 @@ try_authenticate_success(Connection) ->
     meck:expect(httpc, request, fun(post, _, _, _) ->
                                         {ok, {{v, 200, rp}, h, binary:bin_to_list(jsx:encode([{<<"authenticated">>, true}, {<<"user_data">>, <<"somedata">>}]))}} end),
     gen_server:cast(Connection, {process_message, jsx:encode([{<<"authenticate">>, <<"user1">>}, {<<"token">>, <<"O_O">>}])}),
-    Expected = {text, jsx:encode([{<<"info">>, <<"Authenticated">>}])},
+    Expected = {text, jsx:encode([{<<"type">>, <<"info">>}, {<<"payload">>, <<"Authenticated">>}])},
     Obtained = receive
                   Message -> Message
               after 2000 -> false
@@ -306,7 +306,7 @@ try_subscribe_then_authenticate_success(Connection) ->
     meck:expect(httpc, request, fun(post, _, _, _) ->
                                         {ok, {{v, 200, rp}, h, binary:bin_to_list(jsx:encode([{<<"authenticated">>, true}, {<<"user_data">>, <<"somedata">>}]))}} end),
     gen_server:cast(Connection, {process_message, jsx:encode([{<<"authenticate">>, <<"user1">>}, {<<"token">>, <<"O_O">>}])}),
-    Expected = {text, jsx:encode([{<<"info">>, <<"Authenticated">>}])},
+    Expected = {text, jsx:encode([{<<"type">>, <<"info">>}, {<<"payload">>, <<"Authenticated">>}])},
     Obtained = receive
                   Message -> Message
               after 2000 -> false
@@ -322,7 +322,7 @@ try_ask_presence(Connection) ->
     meck:new(carotene_presence),
     meck:expect(carotene_presence, presence, fun(_Channel) -> [<<"someuser">>] end),
     gen_server:cast(Connection, {process_message, jsx:encode([{<<"presence">>, <<"room1">>}])}),
-    Expected = {text, jsx:encode([{<<"subscribers">>, [<<"someuser">>]}, {<<"channel">>, <<"room1">>}])},
+    Expected = {text, jsx:encode([{<<"type">>, <<"presence">>}, {<<"subscribers">>, [<<"someuser">>]}, {<<"channel">>, <<"room1">>}])},
     Obtained = receive
                   Message -> Message
               after 2000 -> false
@@ -334,7 +334,7 @@ try_ask_presence(Connection) ->
 try_ask_presence_not_subscribed(Connection) ->
     application:set_env(carotene, presence, true),
     gen_server:cast(Connection, {process_message, jsx:encode([{<<"presence">>, <<"room1">>}])}),
-    Expected = {text, jsx:encode([{<<"info">>, <<"Cannot ask for presence when not subscribed to the channel">>}])},
+    Expected = {text, jsx:encode([{<<"type">>, <<"info">>}, {<<"payload">>, <<"Cannot ask for presence when not subscribed to the channel">>}])},
     Obtained = receive
                   Message -> Message
               after 2000 -> false
@@ -345,7 +345,7 @@ try_ask_presence_not_configured(Connection) ->
     application:unset_env(carotene, presence),
     subscribe(Connection),
     gen_server:cast(Connection, {process_message, jsx:encode([{<<"presence">>, <<"room1">>}])}),
-    Expected = {text, jsx:encode([{<<"info">>, <<"Presence is disabled">>}])},
+    Expected = {text, jsx:encode([{<<"type">>, <<"info">>}, {<<"payload">>, <<"Presence is disabled">>}])},
     Obtained = receive
                   Message -> Message
               after 2000 -> false

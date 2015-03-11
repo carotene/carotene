@@ -16,6 +16,8 @@
           transport
          }).
 
+-include_lib("eunit/include/eunit.hrl").
+
 start_link(From) ->
     Opts = [],
     gen_server:start_link(?MODULE, [From], Opts).
@@ -56,7 +58,8 @@ handle_info({received_message, Msg}, State = #state{transport = Transport}) ->
     {noreply, State};
 
 handle_info({just_send, Msg}, State = #state{transport = Transport}) ->
-    Transport ! {text, jsx:encode([{<<"info">>, Msg}])},
+    Transport ! {text, jsx:encode([{<<"type">>, <<"info">>},
+                                   {<<"payload">>, Msg}])},
     {noreply, State};
 
 handle_info(_Info, State) ->
@@ -89,11 +92,13 @@ process_message([{<<"subscribe">>, Channel}], State = #state{subscribers=Subs, u
     State#state{subscribers = NewSubs};
 
 process_message([{<<"channel">>, Channel}, {<<"publish">>, Message}], State = #state{publishers=Pubs, user_id=UserId, user_data=UserData}) ->
-    CompleteMessage = jsx:encode([{<<"message">>, Message},
-                                            {<<"channel">>, Channel},
-                                            {<<"user_id">>, UserId},
-                                            {<<"user_data">>, UserData}
-                                           ]),
+    CompleteMessage = jsx:encode([
+                                  {<<"type">>, <<"message">>},
+                                  {<<"message">>, Message},
+                                  {<<"channel">>, Channel},
+                                  {<<"user_id">>, UserId},
+                                  {<<"user_data">>, UserData}
+                                 ]),
     NewPubs = case dict:find(Channel, Pubs) of
                   {ok, PublisherPid} -> 
                       publisher:publish(PublisherPid, CompleteMessage),
@@ -123,7 +128,9 @@ process_message([{<<"presence">>, Channel}], State = #state{subscribers=Subs}) -
                 error -> self() ! {just_send, <<"Cannot ask for presence when not subscribed to the channel">>};
                 {ok, _} ->
                     UsersSub = carotene_presence:presence(Channel),
-                    self() ! {presence_response, jsx:encode([{<<"subscribers">>, UsersSub},
+                    self() ! {presence_response, jsx:encode([
+                                                             {<<"type">>, <<"presence">>},
+                                                             {<<"subscribers">>, UsersSub},
                                                              {<<"channel">>, Channel}
                                                             ])}
             end;

@@ -17,25 +17,6 @@ publish_test_() ->
         end
      }}.
 
-subscribe_test_() ->
-    {"Admin connection can subcribe",
-     {setup, 
-        fun start/0,
-        fun stop/1,
-        fun(Connection) ->
-                [try_subscribe(Connection)]
-        end
-     }}.
-
-die_after_subscribe_test_() ->
-    {"Admin connection dies and then unsibscribes",
-     {setup, 
-        fun start/0,
-        fun(_) -> ok end,
-        fun(Connection) ->
-                [try_subscribe_and_die(Connection)]
-        end
-     }}.
 
 %% Setups/Teardowns
 start() ->
@@ -60,22 +41,3 @@ try_publish(Connection) ->
     meck:unload(router),
     ?_assertEqual(ok, Res).
 
-try_subscribe(Connection) ->
-    meck:new(router),
-    meck:expect(router, subscribe, fun(<<"room1">>, _Connection, server) -> ok end),
-    Res = gen_server:call(Connection, {subscribe, {channel, <<"room1">>}}),
-    ?assertEqual(true, meck:validate(router)),
-    meck:unload(router),
-    ?_assertEqual(ok, Res).
-
-try_subscribe_and_die(Connection) ->
-    meck:new(router),
-    meck:expect(router, subscribe, fun(<<"room1">>, _Connection, server) -> ok end),
-    meck:expect(router, unsubscribe_channels, fun([<<"room1">>], _Connection, server) -> 
-                                                      ok end),
-    Res = gen_server:call(Connection, {subscribe, {channel, <<"room1">>}}),
-
-    gen_server:call(Connection, stop),
-    ?assertEqual(true, meck:validate(router)),
-    meck:unload(router),
-    ?_assertEqual(ok, Res).
