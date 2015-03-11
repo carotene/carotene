@@ -26,7 +26,14 @@ init([]) ->
     {ok, State}.
 
 handle_call({publish, {channel, Channel}, {message, Message}}, _From, State) ->
-    Payload = jsx:encode([{<<"message">>, Message},
+    JsonMessage = case jsx:is_json(Message) of
+                      true -> 
+                          Message;
+                      false -> 
+                          jsx:encode(Message)
+                  end,
+    Payload = jsx:encode([{<<"type">>, <<"message">>},
+                          {<<"message">>, JsonMessage},
                           {<<"channel">>, Channel}, 
                           {<<"from_server">>, <<"true">>}
                          ]),
@@ -48,8 +55,7 @@ handle_cast(_Msg, State) ->
 
 handle_info({received_message, Msg, channel, Channel}, State) ->
     case application:get_env(carotene, subscribe_url) of
-        {ok, Url} -> httpc:request(post, {Url, [], "application/x-www-form-urlencoded", "nmessage="++binary_to_list(Msg)++"&channel="++binary_to_list(Channel)}, [], []);
-        % TODO: log this
+        {ok, Url} -> httpc:request(post, {Url, [], "application/x-www-form-urlencoded", "message="++binary_to_list(Msg)++"&channel="++binary_to_list(Channel)}, [], []);
         _ -> ok
     end,
     {noreply, State};

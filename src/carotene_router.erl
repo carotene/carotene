@@ -34,7 +34,7 @@ handle_cast({publish, Message, channel, Channel}, State) ->
            catch _:_ -> []
            end,
 
-    broadcast({received_message, Message}, Subs),
+    broadcast({received_message, Message, channel, Channel}, Subs),
     broadcast_cluster({cluster_publish, Message, channel, Channel}, nodes()),
     broker_publish(Message, Channel),
     {noreply, State};
@@ -44,7 +44,7 @@ handle_cast({cluster_publish, Message, channel, Channel}, State) ->
                Subs1 -> Subs1
            catch _:_ -> []
            end,
-    broadcast({received_message, Message}, Subs),
+    broadcast({received_message, Message, channel, Channel}, Subs),
     {noreply, State};
 
 handle_cast({subscribe, Channel, from, ReplyTo, user_id, UserId}, State) ->
@@ -98,7 +98,7 @@ broadcast_cluster(_, []) ->
     true.
 
 broker_publish(Msg, Channel) ->
-    case broker_sup:get_broker() of
+    case carotene_broker_sup:get_broker() of
         undefined ->
             ok;
         {_BrokerType, Broker} -> 

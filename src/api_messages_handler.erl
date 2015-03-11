@@ -6,7 +6,7 @@
 -export([content_types_accepted/2]).
 %-export([resource_exists/2]).
 -export([publish_in_channel/3]).
--export([from_json/2]).
+-export([publish_message/2]).
 
 init(Req, Opts) ->
     {IP, _Port} = cowboy_req:peer(Req),
@@ -29,10 +29,10 @@ allowed_methods(Req, State) ->
 
 content_types_accepted(Req, State) ->
     {[
-      {{<<"application">>, <<"json">>, []}, from_json}
+      {{<<"application">>, <<"x-www-form-urlencoded">>, []}, publish_message}
     ], Req, State}.
 
-from_json(Req, State) ->
+publish_message(Req, State) ->
     Channel = cowboy_req:binding(channel, Req),
     publish_in_channel(Channel, Req, State).
 

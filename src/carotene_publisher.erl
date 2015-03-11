@@ -32,7 +32,7 @@ handle_info(shutdown, State) ->
 
 handle_call({publish, Message}, _From, State = #state{channel = Channel, user_id = UserId}) ->
     case already_authorized of
-        true -> 
+        true ->
                 gen_server:cast(carotene_router, {publish,  Message, channel, Channel}),
                 {reply, ok, State};
         _ ->
@@ -40,7 +40,8 @@ handle_call({publish, Message}, _From, State = #state{channel = Channel, user_id
                 true ->
                     gen_server:cast(carotene_router, {publish,  Message, channel, Channel}),
                     {reply, ok, State#state{already_authorized = true}};
-                Error -> {reply, {error, Error}, State}
+                Error -> 
+                    {reply, {error, Error}, State}
             end
     end;
 
@@ -74,5 +75,6 @@ can_publish(UserId, Channel) ->
     case application:get_env(carotene, publish_authorization) of
         % if no authorization config defined, user can publish
         undefined -> true;
-        {ok, AuthConfig} -> carotene_authorization:check_authorization(UserId, Channel, AuthConfig)
+        {ok, AuthConfig} -> 
+            carotene_authorization:check_authorization(UserId, Channel, AuthConfig)
     end.

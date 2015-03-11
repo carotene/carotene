@@ -6,3 +6,4 @@ _rel/*
 priv/*
 .rebar/*
 test/*.beam
+erl_crash.dump

@@ -101,11 +101,11 @@ process_message([{<<"channel">>, Channel}, {<<"publish">>, Message}], State = #s
                                  ]),
     NewPubs = case dict:find(Channel, Pubs) of
                   {ok, PublisherPid} -> 
-                      carotene_publisher:publish(PublisherPid, CompleteMessage),
+                      publish(PublisherPid, CompleteMessage),
                       Pubs;
-                  error -> 
+                  error ->
                       {ok, PublisherPid} = carotene_publisher_sup:start_child([Channel, UserId, self()]),
-                      carotene_publisher:publish(PublisherPid, CompleteMessage),
+                      publish(PublisherPid, CompleteMessage),
                       dict:store(Channel, PublisherPid, Pubs)
 
               end,
@@ -166,3 +166,9 @@ update_users(UserId, Subs, Pubs) ->
                      carotene_subscriber:update_user(Sub, UserId) end, Subs),
     dict:map(fun(_Channel, Pub) -> 
                      carotene_publisher:update_user(Pub, UserId) end, Pubs).
+
+publish(PublisherPid, CompleteMessage) ->
+    case carotene_publisher:publish(PublisherPid, CompleteMessage) of
+        ok -> ok;
+        {error, Error} -> self() ! {just_send, Error}
+    end.
