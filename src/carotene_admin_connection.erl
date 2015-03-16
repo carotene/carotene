@@ -2,6 +2,7 @@
 
 -behaviour(gen_server).
 
+
 -export([start_link/0, start/0]).
 -export([stop/1]).
 -export([init/1, terminate/2, code_change/3, handle_call/3,
@@ -26,13 +27,13 @@ init([]) ->
     {ok, State}.
 
 handle_call({publish, {channel, Channel}, {message, Message}}, _From, State) ->
-    JsonMessage = case jsx:is_json(Message) of
-                      true -> 
+    JsonMessage = case jsonx:decode(Message, [{format, proplist}]) of
+                      {error, invalid_json, _} ->
                           Message;
-                      false -> 
-                          jsx:encode(Message)
+                      MessageDec ->
+                          MessageDec
                   end,
-    Payload = jsx:encode([{<<"type">>, <<"message">>},
+    Payload = jsonx:encode([{<<"type">>, <<"message">>},
                           {<<"message">>, JsonMessage},
                           {<<"channel">>, Channel}, 
                           {<<"from_server">>, <<"true">>}

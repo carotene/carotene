@@ -36,7 +36,7 @@ start_and_test_running() ->
 try_publish(Connection) ->
     meck:new(carotene_router),
     meck:expect(carotene_router, publish, fun(_, _) -> ok end),
-    Res = gen_server:call(Connection, {publish, {channel, <<"room1">>}, {message, <<"hi there">>}}),
+    Res = gen_server:call(Connection, {publish, {channel, <<"room1">>}, {message, <<"\"hi there\"">>}}),
     ?assertEqual(true, meck:validate(carotene_router)),
     meck:unload(carotene_router),
     ?_assertEqual(ok, Res).

@@ -28,7 +28,7 @@ content_types_provided(Req, State) ->
 
 presence_to_json(Req, Channel) ->
     {_, UsersSub} = carotene_presence:presence(Channel),
-    Body = jsx:encode(UsersSub),
+    Body = jsonx:encode(UsersSub),
     {Body, Req, Channel}.
 
 resource_exists(Req, _State) ->

@@ -31,7 +31,7 @@ when_level_ask_fails_if_authorization_url_not_present_test() ->
 when_level_ask_user_asks_for_authorization_test() ->
     meck:new(httpc),
     meck:expect(httpc, request, fun(post, _, _, _) ->
-                                        {ok, {{v, 200, rp}, h, binary:bin_to_list(jsx:encode([{<<"authorized">>, false}]))}} end),
+                                        {ok, {{v, 200, rp}, h, binary:bin_to_list(jsonx:encode([{<<"authorized">>, false}]))}} end),
     Res = carotene_authorization:check_authorization(<<"user1">>, <<"room1">>, [{level, ask}, {authorization_url, <<"http://someurl.com">>}]),
     meck:unload(httpc),
     ?assertEqual(<<"no authorization">>, Res).
@@ -39,7 +39,7 @@ when_level_ask_user_asks_for_authorization_test() ->
 when_level_ask_user_asks_for_authorization_can_succeed_test() ->
     meck:new(httpc),
     meck:expect(httpc, request, fun(post, _, _, _) ->
-                                        {ok, {{v, 200, rp}, h, binary:bin_to_list(jsx:encode([{<<"authorized">>, true}]))}} end),
+                                        {ok, {{v, 200, rp}, h, binary:bin_to_list(jsonx:encode([{<<"authorized">>, true}]))}} end),
     Res = carotene_authorization:check_authorization(<<"user1">>, <<"room1">>, [{level, ask}, {authorization_url, <<"http://someurl.com">>}]),
     meck:unload(httpc),
     ?assertEqual(true, Res).
@@ -55,7 +55,7 @@ malformed_json_from_server_in_authorization_fails_test() ->
 bad_response_from_server_on_authorization_failt_test() ->
     meck:new(httpc),
     meck:expect(httpc, request, fun(post, _, _, _) ->
-                                        {ok, {{v, 200, rp}, h, binary:bin_to_list(jsx:encode([{<<"server_says">>, <<"some_stuff">>}]))}} end),
+                                        {ok, {{v, 200, rp}, h, binary:bin_to_list(jsonx:encode([{<<"server_says">>, <<"some_stuff">>}]))}} end),
     Res = carotene_authorization:check_authorization(<<"user1">>, <<"room1">>, [{level, ask}, {authorization_url, <<"http://someurl.com">>}]),
     meck:unload(httpc),
     ?assertEqual(<<"bad response from server on authorization">>, Res).

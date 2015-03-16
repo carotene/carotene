@@ -1,6 +1,6 @@
 {application, carotene,
  [
-  {description, "Realtime server over websockets"},
+  {description, "Realtime PubSub server over websockets"},
   {vsn, "0.1"},
   {registered, []},
   {applications, [
@@ -10,7 +10,7 @@
                   rabbit_common,
                   amqp_client,
                   meck,
-                  jsx,
+                  jsonx,
                   inets
                  ]},
   {mod, { carotene_app, []}},

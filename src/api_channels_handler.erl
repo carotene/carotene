@@ -27,10 +27,10 @@ content_types_provided(Req, State) ->
      ], Req, State}.
 
 channel_to_json(Req, {index, Channels}) ->
-    Body = jsx:encode(Channels),
+    Body = jsonx:encode(Channels),
     {Body, Req, Channels};
 channel_to_json(Req, Channel) ->
-    Body = jsx:encode([{<<"channel">>, Channel}]),
+    Body = jsonx:encode([{<<"channel">>, Channel}]),
     {Body, Req, Channel}.
 
 resource_exists(Req, _State) ->
