@@ -12,7 +12,6 @@
          }).
 
 init(_Transport, Req, _Opts, Active) ->
-
     ConnectionPid = case Active of
                         once ->
                             init_xhr_get(Req);
@@ -27,6 +26,8 @@ stream(Data, Req, State = #state{connection = Connection}) ->
     gen_server:cast(Connection, {process_message, Data}),
     {ok, Req, State}.
 
+info({list, Msgs}, Req, State) ->
+    {reply, Msgs, Req, State};
 info({text, Msg}, Req, State) ->
     {reply, Msg, Req, State};
 info({send_token, Token}, Req, State) ->
@@ -36,9 +37,10 @@ info({send_token, Token}, Req, State) ->
 info(_Info, Req, State) ->
     {ok, Req, State}.
 
-terminate(_Req, #state{connection = ConnectionPid}) ->
-
-    ConnectionPid ! connection_hiatus,
+terminate(_Req, #state{connection = ConnectionPid, active = once}) ->
+    ConnectionPid ! transport_hiatus,
+    ok;
+terminate(_Req, _State) ->
     ok.
 
 %%
@@ -61,7 +63,7 @@ init_xhr_get(Req) ->
                 [{_, Conn}] -> 
                     case is_process_alive(Conn) of
                         true ->
-                            gen_server:call(Conn, {keepalive, self()}),
+                            gen_server:cast(Conn, {keepalive, self()}),
                             Conn;
                         false ->
                             create_connection()

@@ -15,6 +15,8 @@
           publishers,
           subscribers,
           transport,
+          transport_state,
+          buffer,
           timer
          }).
 
@@ -30,10 +32,11 @@ init([From, Type]) ->
     case Type of
         intermitent ->
             % Long polling connection, set timeout
-            {ok, #state{publishers = dict:new(), subscribers = dict:new(), transport = From, user_id = anonymous, timer = erlang:start_timer(?TIMEOUT, self(), timeout)}};
+            {ok, #state{publishers = dict:new(), subscribers = dict:new(), transport = From, user_id = anonymous, transport_state = temporary, buffer = [], timer = erlang:start_timer(?TIMEOUT, self(), timeout)}};
         permanent ->
+            % permanent connection, alert when dies
             erlang:monitor(process, From),
-            {ok, #state{publishers = dict:new(), subscribers = dict:new(), transport = From, user_id = anonymous, timer = undefined}}
+            {ok, #state{publishers = dict:new(), subscribers = dict:new(), transport = From, user_id = anonymous, transport_state = permanent, buffer = [], timer = undefined}}
 
     end.
 
@@ -46,36 +49,38 @@ handle_cast({process_message, Message}, State = #state{timer = Timer}) ->
                    Msg -> 
                        process_message(lists:keysort(1, Msg), State)
                end,
-
     {noreply, StateNew#state{timer = Timer2}};
 handle_cast({keepalive, From}, State = #state{timer = Timer}) ->
     Timer2 = reset_timer(Timer),
-    {noreply, State#state{transport = From, timer = Timer2}};
+    {noreply, State#state{transport = From, timer = Timer2, transport_state = temporary}};
 handle_cast(_Message, State) ->
     {noreply, State}.
 
 handle_call(_Request, _From, State) ->
     {reply, unknown_request, State}.
 
-handle_info(connection_hiatus, State) ->
-    {noreply, State};
+handle_info(transport_hiatus, State) ->
+    % When long polling is (briefly) interrupted, we stop sending messages
+    {noreply, State#state{transport_state = hiatus}, 5000};
 handle_info({'DOWN', _Ref, process, _Pid, _}, State) ->
     {stop, shutdown, State};
 
+handle_info(timeout, State) ->
+    {stop, shutdown, State};
 handle_info({timeout, _TRef, _}, State) ->
     {stop, shutdown, State};
-handle_info({presence_response, Msg}, State = #state{transport = Transport}) ->
-    Transport ! {text, Msg},
-    {noreply, State};
+handle_info({presence_response, Msg}, State = #state{transport = Transport, buffer = Buffer, transport_state = TState}) ->
+    NewBuffer = send_transport(Transport, Msg, Buffer, TState),
+    {noreply, State#state{buffer = NewBuffer}};
 
-handle_info({received_message, Msg}, State = #state{transport = Transport}) ->
-    Transport ! {text, Msg},
-    {noreply, State};
+handle_info({received_message, Msg}, State = #state{transport = Transport, buffer = Buffer, transport_state = TState}) ->
+    NewBuffer = send_transport(Transport, Msg, Buffer, TState),
+    {noreply,State#state{buffer = NewBuffer}};
 
-handle_info({just_send, Msg}, State = #state{transport = Transport}) ->
-    Transport ! {text, jsonx:encode([{<<"type">>, <<"info">>},
-                                   {<<"payload">>, Msg}])},
-    {noreply, State};
+handle_info({just_send, Msg}, State = #state{transport = Transport, buffer = Buffer, transport_state = TState}) ->
+    NewBuffer = send_transport(Transport, jsonx:encode([{<<"type">>, <<"info">>},
+                                                   {<<"payload">>, Msg}]), Buffer, TState),
+    {noreply, State#state{buffer = NewBuffer}};
 
 handle_info(_Info, State) ->
     {stop, {unhandled_message, _Info}, State}.
@@ -199,3 +204,14 @@ reset_timer(Timer) ->
                     end
     end.
 
+send_transport(Transport, Msg, [], permanent) ->
+    % always open, just send
+    Transport ! {text, Msg},
+    [];
+send_transport(Transport, Msg, Buffer, temporary) ->
+    % open for one response, flush buffer
+    Transport ! {list, [Msg|Buffer]},
+    [];
+send_transport(_Transport, Msg, Buffer, hiatus) ->
+    % connection inactve, store
+    [Msg|Buffer].
