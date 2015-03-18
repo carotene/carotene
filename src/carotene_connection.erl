@@ -2,8 +2,9 @@
 
 -behaviour(gen_server).
 
+-define(TIMEOUT, 100000).
 
--export([start/1, start_link/1]).
+-export([start/2, start_link/2]).
 -export([stop/1]).
 -export([init/1, terminate/2, code_change/3, handle_call/3,
          handle_cast/2, handle_info/2]).
@@ -13,22 +14,31 @@
           user_data,
           publishers,
           subscribers,
-          transport
+          transport,
+          timer
          }).
 
-start_link(From) ->
+start_link(From, Type) ->
     Opts = [],
-    gen_server:start_link(?MODULE, [From], Opts).
+    gen_server:start_link(?MODULE, [From, Type], Opts).
 
-start(From) ->
+start(From, Type) ->
     Opts = [],
-    gen_server:start(?MODULE, [From], Opts).
+    gen_server:start(?MODULE, [From, Type], Opts).
 
-init([From]) ->
-    erlang:monitor(process, From),
-    {ok, #state{publishers = dict:new(), subscribers = dict:new(), transport = From, user_id = anonymous}}.
+init([From, Type]) ->
+    case Type of
+        intermitent ->
+            % Long polling connection, set timeout
+            {ok, #state{publishers = dict:new(), subscribers = dict:new(), transport = From, user_id = anonymous, timer = erlang:start_timer(?TIMEOUT, self(), timeout)}};
+        permanent ->
+            erlang:monitor(process, From),
+            {ok, #state{publishers = dict:new(), subscribers = dict:new(), transport = From, user_id = anonymous, timer = undefined}}
 
-handle_cast({process_message, Message}, State) ->
+    end.
+
+handle_cast({process_message, Message}, State = #state{timer = Timer}) ->
+    Timer2 = reset_timer(Timer),
     StateNew = case jsonx:decode(Message, [{format, proplist}]) of
                    {error, invalid_json, _} -> 
                        self() ! {just_send, <<"Non JSON message received">>},
@@ -37,17 +47,23 @@ handle_cast({process_message, Message}, State) ->
                        process_message(lists:keysort(1, Msg), State)
                end,
 
-    {noreply, StateNew};
-
+    {noreply, StateNew#state{timer = Timer2}};
+handle_cast({keepalive, From}, State = #state{timer = Timer}) ->
+    Timer2 = reset_timer(Timer),
+    {noreply, State#state{transport = From, timer = Timer2}};
 handle_cast(_Message, State) ->
     {noreply, State}.
 
 handle_call(_Request, _From, State) ->
     {reply, unknown_request, State}.
 
+handle_info(connection_hiatus, State) ->
+    {noreply, State};
 handle_info({'DOWN', _Ref, process, _Pid, _}, State) ->
     {stop, shutdown, State};
 
+handle_info({timeout, _TRef, _}, State) ->
+    {stop, shutdown, State};
 handle_info({presence_response, Msg}, State = #state{transport = Transport}) ->
     Transport ! {text, Msg},
     {noreply, State};
@@ -171,3 +187,15 @@ publish(PublisherPid, CompleteMessage) ->
         ok -> ok;
         {error, Error} -> self() ! {just_send, Error}
     end.
+
+reset_timer(Timer) ->
+    case Timer of
+        undefined -> undefined;
+        TimerRef -> case catch erlang:cancel_timer(TimerRef) of
+                        false ->
+                            erlang:start_timer(?TIMEOUT, self(), timeout);
+                        _ ->
+                            erlang:start_timer(?TIMEOUT, self(), timeout)
+                    end
+    end.
+

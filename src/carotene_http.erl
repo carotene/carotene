@@ -10,12 +10,15 @@ start_link() ->
     gen_server:start(?MODULE, [], Opts).
 
 init([]) ->
+    ets:new(carotene_connections, [set, public, named_table]),
     Dispatch = cowboy_router:compile([
         {'_', [
             {"/api/channels/[:channel/]", api_channels_handler, []},
             {"/api/channels/:channel/messages", api_messages_handler, []},
             {"/api/channels/:channel/presence", api_presence_handler, []},
-            {"/websocket", ws_handler, []}
+            {"/static/[...]", cowboy_static, {priv_dir, carotene, "",
+                                              [{mimetypes, cow_mimetypes, all}]}},
+            {"/stream", bullet_handler, [{handler, stream_handler}]}
         ]}
     ]),
     start_http(Dispatch),
