@@ -12,6 +12,7 @@
          }).
 
 init(_Transport, Req, _Opts, Active) ->
+
     ConnectionPid = case Active of
                         once ->
                             init_xhr_get(Req);
@@ -22,12 +23,16 @@ init(_Transport, Req, _Opts, Active) ->
                     end,
     {ok, Req, #state{active = Active, token = undefined, connection = ConnectionPid}}.
 
+stream(_Data, Req, State = #state{connection = undefined}) ->
+    %long polling posting message, but connection is not alive, discard it
+    {ok, Req, State};
 stream(Data, Req, State = #state{connection = Connection}) ->
     gen_server:cast(Connection, {process_message, Data}),
     {ok, Req, State}.
 
 info({list, Msgs}, Req, State) ->
-    {reply, Msgs, Req, State};
+    MsgList = erlang:iolist_to_binary([<<"[">>] ++ intersperse(<<",">>, Msgs) ++ [<<"]">>]),
+    {reply, MsgList, Req, State};
 info({text, Msg}, Req, State) ->
     {reply, Msg, Req, State};
 info({send_token, Token}, Req, State) ->
@@ -50,7 +55,7 @@ terminate(_Req, _State) ->
 create_connection() ->
     Token = list_to_binary(uuid:to_string(uuid:v4())),
     self() ! {send_token, Token},
-    {ok, CPid} = supervisor:start_child(carotene_connection_sup, [self(), intermitent]),
+    {ok, CPid} = supervisor:start_child(carotene_connection_sup, [self(), intermittent, Token]),
     ets:insert(carotene_connections, {Token, CPid}),
     CPid.
 
@@ -76,14 +81,28 @@ init_xhr_get(Req) ->
 init_xhr_post(Req) ->
     case cowboy_req:header(<<"connection-id">>, Req) of
         {undefined, _Req2} ->
-            create_connection();
+            undefined;
         {ConnId, _Req2} -> 
             case ets:lookup(carotene_connections, ConnId) of
-                [{_, Conn}] -> Conn;
-                [] -> create_connection()
+                [{_, Conn}] ->
+                    case is_process_alive(Conn) of
+                        true ->
+                            Conn;
+                        false ->
+                            undefined
+                    end;
+                [] -> 
+                    undefined
             end
     end.
 
 init_long_lived() ->
-    {ok, CPid} = supervisor:start_child(carotene_connection_sup, [self(), permanent]),
+    {ok, CPid} = supervisor:start_child(carotene_connection_sup, [self(), permanent, undefined]),
     CPid.
+
+intersperse(_, []) ->
+  [];
+intersperse(_, [X]) ->
+  [X];
+intersperse(Sep, [X | Xs]) ->
+  [X, Sep | intersperse(Sep, Xs)].

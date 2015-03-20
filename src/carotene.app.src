@@ -11,6 +11,7 @@
                   amqp_client,
                   meck,
                   jsonx,
+                  msgpack,
                   inets
                  ]},
   {mod, { carotene_app, []}},

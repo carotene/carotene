@@ -2,9 +2,9 @@
 
 -behaviour(gen_server).
 
--define(TIMEOUT, 100000).
+-define(CONNTIMEOUT, 100000).
 
--export([start/2, start_link/2]).
+-export([start/3, start_link/3]).
 -export([stop/1]).
 -export([init/1, terminate/2, code_change/3, handle_call/3,
          handle_cast/2, handle_info/2]).
@@ -17,28 +17,27 @@
           transport,
           transport_state,
           buffer,
+          connId,
           timer
          }).
 
-start_link(From, Type) ->
+start_link(From, Type, ConnId) ->
     Opts = [],
-    gen_server:start_link(?MODULE, [From, Type], Opts).
+    gen_server:start_link(?MODULE, [From, Type, ConnId], Opts).
 
-start(From, Type) ->
+start(From, Type, ConnId) ->
     Opts = [],
-    gen_server:start(?MODULE, [From, Type], Opts).
+    gen_server:start(?MODULE, [From, Type, ConnId], Opts).
 
-init([From, Type]) ->
-    case Type of
-        intermitent ->
-            % Long polling connection, set timeout
-            {ok, #state{publishers = dict:new(), subscribers = dict:new(), transport = From, user_id = anonymous, transport_state = temporary, buffer = [], timer = erlang:start_timer(?TIMEOUT, self(), timeout)}};
-        permanent ->
-            % permanent connection, alert when dies
-            erlang:monitor(process, From),
-            {ok, #state{publishers = dict:new(), subscribers = dict:new(), transport = From, user_id = anonymous, transport_state = permanent, buffer = [], timer = undefined}}
+init([From, intermittent, ConnId]) ->
+    % Long polling connection, set timeout
+    {ok, #state{publishers = dict:new(), subscribers = dict:new(), transport = From, user_id = anonymous, transport_state = temporary, connId = ConnId, buffer = [], timer = erlang:start_timer(?CONNTIMEOUT, self(), trigger)}};
 
-    end.
+init([From, permanent, undefined]) ->
+    % permanent connection, alert when dies
+    erlang:monitor(process, From),
+    {ok, #state{publishers = dict:new(), subscribers = dict:new(), transport = From, user_id = anonymous, transport_state = permanent, connId = undefined, buffer = [], timer = undefined}}.
+
 
 handle_cast({process_message, Message}, State = #state{timer = Timer}) ->
     Timer2 = reset_timer(Timer),
@@ -50,9 +49,14 @@ handle_cast({process_message, Message}, State = #state{timer = Timer}) ->
                        process_message(lists:keysort(1, Msg), State)
                end,
     {noreply, StateNew#state{timer = Timer2}};
-handle_cast({keepalive, From}, State = #state{timer = Timer}) ->
+handle_cast({keepalive, From}, State = #state{timer = Timer, buffer = Buffer}) ->
     Timer2 = reset_timer(Timer),
-    {noreply, State#state{transport = From, timer = Timer2, transport_state = temporary}};
+    case Buffer of
+        [] -> ok;
+        Msgs -> flush_buffer(From, Msgs)
+    end,
+
+    {noreply, State#state{transport = From, timer = Timer2, transport_state = temporary, buffer = []}};
 handle_cast(_Message, State) ->
     {noreply, State}.
 
@@ -61,13 +65,13 @@ handle_call(_Request, _From, State) ->
 
 handle_info(transport_hiatus, State) ->
     % When long polling is (briefly) interrupted, we stop sending messages
-    {noreply, State#state{transport_state = hiatus}, 5000};
+    {noreply, State#state{transport_state = hiatus}};
 handle_info({'DOWN', _Ref, process, _Pid, _}, State) ->
     {stop, shutdown, State};
 
 handle_info(timeout, State) ->
     {stop, shutdown, State};
-handle_info({timeout, _TRef, _}, State) ->
+handle_info({timeout, _TRef, _Msg}, State) ->
     {stop, shutdown, State};
 handle_info({presence_response, Msg}, State = #state{transport = Transport, buffer = Buffer, transport_state = TState}) ->
     NewBuffer = send_transport(Transport, Msg, Buffer, TState),
@@ -88,7 +92,11 @@ handle_info(_Info, State) ->
 stop(Pid) ->
     gen_server:call(Pid, stop, infinity).
 
-terminate(_Reason, _State) ->
+terminate(_Reason, #state{connId = undefined}) ->
+    ok;
+terminate(_Reason, #state{connId = Token}) ->
+    % long polling
+    ets:delete(carotene_connections, Token),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->
@@ -195,12 +203,13 @@ publish(PublisherPid, CompleteMessage) ->
 
 reset_timer(Timer) ->
     case Timer of
-        undefined -> undefined;
+        undefined -> 
+            undefined;
         TimerRef -> case catch erlang:cancel_timer(TimerRef) of
                         false ->
-                            erlang:start_timer(?TIMEOUT, self(), timeout);
+                            erlang:start_timer(?CONNTIMEOUT, self(), trigger);
                         _ ->
-                            erlang:start_timer(?TIMEOUT, self(), timeout)
+                            erlang:start_timer(?CONNTIMEOUT, self(), trigger)
                     end
     end.
 
@@ -210,8 +219,12 @@ send_transport(Transport, Msg, [], permanent) ->
     [];
 send_transport(Transport, Msg, Buffer, temporary) ->
     % open for one response, flush buffer
-    Transport ! {list, [Msg|Buffer]},
+    flush_buffer(Transport, [Msg|Buffer]),
     [];
 send_transport(_Transport, Msg, Buffer, hiatus) ->
     % connection inactve, store
     [Msg|Buffer].
+
+flush_buffer(Transport, Msgs) ->
+    Transport ! {list, Msgs}.
+
