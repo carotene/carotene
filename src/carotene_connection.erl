@@ -4,7 +4,7 @@
 
 -define(CONNTIMEOUT, 100000).
 
--export([start/3, start_link/3]).
+-export([start/2, start_link/2]).
 -export([stop/1]).
 -export([init/1, terminate/2, code_change/3, handle_call/3,
          handle_cast/2, handle_info/2]).
@@ -17,26 +17,25 @@
           transport,
           transport_state,
           buffer,
-          connId,
           timer
          }).
 
-start_link(From, Type, ConnId) ->
+start_link(From, Type) ->
     Opts = [],
-    gen_server:start_link(?MODULE, [From, Type, ConnId], Opts).
+    gen_server:start_link(?MODULE, [From, Type], Opts).
 
-start(From, Type, ConnId) ->
+start(From, Type) ->
     Opts = [],
-    gen_server:start(?MODULE, [From, Type, ConnId], Opts).
+    gen_server:start(?MODULE, [From, Type], Opts).
 
-init([From, intermittent, ConnId]) ->
+init([From, intermittent]) ->
     % Long polling connection, set timeout
-    {ok, #state{publishers = dict:new(), subscribers = dict:new(), transport = From, user_id = anonymous, transport_state = temporary, connId = ConnId, buffer = [], timer = erlang:start_timer(?CONNTIMEOUT, self(), trigger)}};
+    {ok, #state{publishers = dict:new(), subscribers = dict:new(), transport = From, user_id = anonymous, transport_state = temporary, buffer = [], timer = erlang:start_timer(?CONNTIMEOUT, self(), trigger)}};
 
-init([From, permanent, undefined]) ->
+init([From, permanent]) ->
     % permanent connection, alert when dies
     erlang:monitor(process, From),
-    {ok, #state{publishers = dict:new(), subscribers = dict:new(), transport = From, user_id = anonymous, transport_state = permanent, connId = undefined, buffer = [], timer = undefined}}.
+    {ok, #state{publishers = dict:new(), subscribers = dict:new(), transport = From, user_id = anonymous, transport_state = permanent, buffer = [], timer = undefined}}.
 
 
 handle_cast({process_message, Message}, State = #state{timer = Timer}) ->
@@ -92,11 +91,7 @@ handle_info(_Info, State) ->
 stop(Pid) ->
     gen_server:call(Pid, stop, infinity).
 
-terminate(_Reason, #state{connId = undefined}) ->
-    ok;
-terminate(_Reason, #state{connId = Token}) ->
-    % long polling
-    ets:delete(carotene_connections, Token),
+terminate(_Reason, _State) ->
     ok.
 
 code_change(_OldVsn, State, _Extra) ->

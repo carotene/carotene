@@ -52,29 +52,28 @@ terminate(_Req, _State) ->
 % Internal functions
 %%
 
-create_connection() ->
+create_connection(Type) ->
     Token = list_to_binary(uuid:to_string(uuid:v4())),
+    {ok, CPid} = carotene_connection_sup:start_connection(self(), Type, Token),
     self() ! {send_token, Token},
-    {ok, CPid} = supervisor:start_child(carotene_connection_sup, [self(), intermittent, Token]),
-    ets:insert(carotene_connections, {Token, CPid}),
     CPid.
 
 init_xhr_get(Req) ->
     case cowboy_req:header(<<"connection-id">>, Req) of
         {undefined, _Req2} ->
-            create_connection();
+            create_connection(intermittent);
         {ConnId, _Req2} -> 
-            case ets:lookup(carotene_connections, ConnId) of
+            case ets:lookup(carotene_conn_bytok, ConnId) of
                 [{_, Conn}] -> 
                     case is_process_alive(Conn) of
                         true ->
                             gen_server:cast(Conn, {keepalive, self()}),
                             Conn;
                         false ->
-                            create_connection()
+                            create_connection(intermittent)
                     end;
                 [] ->
-                    create_connection()
+                    create_connection(intermittent)
             end
     end.
 
@@ -83,7 +82,7 @@ init_xhr_post(Req) ->
         {undefined, _Req2} ->
             undefined;
         {ConnId, _Req2} -> 
-            case ets:lookup(carotene_connections, ConnId) of
+            case ets:lookup(carotene_conn_bytok, ConnId) of
                 [{_, Conn}] ->
                     case is_process_alive(Conn) of
                         true ->
@@ -97,8 +96,7 @@ init_xhr_post(Req) ->
     end.
 
 init_long_lived() ->
-    {ok, CPid} = supervisor:start_child(carotene_connection_sup, [self(), permanent, undefined]),
-    CPid.
+    create_connection(permanent).
 
 intersperse(_, []) ->
   [];
