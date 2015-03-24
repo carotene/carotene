@@ -8,7 +8,8 @@
 -record(state, {
           active,
           token,
-          connection
+          connection,
+          conn_ref
          }).
 
 init(_Transport, Req, _Opts, Active) ->
@@ -39,10 +40,18 @@ info({send_token, Token}, Req, State) ->
     Req2 = cowboy_req:set_resp_header(<<"connection-id">>, Token, Req),
     Msg = "connection-id",
     {reply, Msg, Req2, State#state{token = Token}};
+info({'DOWN', _Ref, process, _Pid, _Reason}, Req, State) ->
+    CPid = create_connection(intermittent),
+    {ok, Req, State#state{connection = CPid}};
 info(_Info, Req, State) ->
     {ok, Req, State}.
 
-terminate(_Req, #state{connection = ConnectionPid, active = once}) ->
+terminate(_Req, #state{connection = ConnectionPid, active = once, conn_ref = ConnRef}) ->
+    case ConnRef of
+        undefined -> ok;
+        _ -> erlang:demonitor(ConnRef)
+    end,
+
     ConnectionPid ! transport_hiatus,
     ok;
 terminate(_Req, _State) ->
@@ -52,10 +61,14 @@ terminate(_Req, _State) ->
 % Internal functions
 %%
 
-create_connection(Type) ->
-    Token = list_to_binary(uuid:to_string(uuid:v4())),
-    {ok, CPid} = carotene_connection_sup:start_connection(self(), Type, Token),
+create_connection(intermittent) ->
+    Token = uuid:uuid4(),
+    {ok, CPid} = carotene_connection_sup:start_connection(self(), intermittent, Token),
     self() ! {send_token, Token},
+    erlang:monitor(process, CPid),
+    CPid;
+create_connection(permanent) ->
+    {ok, CPid} = carotene_connection_sup:start_connection(self(), permanent, undefined),
     CPid.
 
 init_xhr_get(Req) ->

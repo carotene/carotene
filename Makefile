@@ -1,13 +1,13 @@
 PROJECT = carotene
 
-DEPS = bullet amqp_client eredis_smart_sub jsonx getopt
+DEPS = bullet amqp_client eredis_smart_sub jsonx getopt uuid
 dep_getopt = git https://github.com/jcomellas/getopt v0.8.2
 dep_bullet = git https://github.com/extend/bullet.git master
 dep_amqp_client = git git://github.com/jbrisbin/amqp_client.git rabbitmq-3.4.0-community
 dep_eredis_smart_sub = git git://github.com/nacmartin/eredis_smart_sub.git master
 dep_meck = git git://github.com/eproxus/meck.git 0.8.2
 dep_jsonx = git git://github.com/iskra/jsonx.git master
-#dep_uuid = git https://github.com/travis/erlang-uuid.git master
+dep_uuid = git https://github.com/avtobiff/erlang-uuid.git v0.4.7
 
 .PHONY: release clean-release
 

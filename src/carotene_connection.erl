@@ -30,6 +30,7 @@ start(From, Type) ->
 
 init([From, intermittent]) ->
     % Long polling connection, set timeout
+    process_flag(trap_exit, true),
     {ok, #state{publishers = dict:new(), subscribers = dict:new(), transport = From, user_id = anonymous, transport_state = temporary, buffer = [], timer = erlang:start_timer(?CONNTIMEOUT, self(), trigger)}};
 
 init([From, permanent]) ->

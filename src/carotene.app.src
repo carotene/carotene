@@ -9,9 +9,8 @@
                   cowboy,
                   rabbit_common,
                   amqp_client,
-                  meck,
                   jsonx,
-                  msgpack,
+                  uuid,
                   inets
                  ]},
   {mod, { carotene_app, []}},

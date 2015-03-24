@@ -23,7 +23,7 @@ start_link() ->
 
 
 start_connection(From, Type, Token) ->
-    carotene_connection_sup ! {?MODULE, start_connection, From, Type, Token},
+    ?MODULE ! {?MODULE, start_connection, From, Type, Token},
     receive Ret -> Ret end.
 
 init(Parent) ->
@@ -103,6 +103,6 @@ report_error(_, {shutdown, _}) ->
     ok;
 report_error(Ref, Reason) ->
     error_logger:error_msg(
-      "Carotene Connection supervisor ~p had connection process started with "
-      "~p:start_link/4 at ~p exit with reason: ~999999p~n",
+      "Carotene Connection supervisor had connection process started "
+      "at ~p exit with reason: ~999999p~n",
       [Ref, Reason]).
