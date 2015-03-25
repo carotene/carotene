@@ -1,6 +1,6 @@
 PROJECT = carotene
 
-DEPS = bullet amqp_client eredis_smart_sub jsonx getopt uuid
+DEPS = bullet amqp_client eredis_smart_sub jsonx getopt uuid meck
 dep_getopt = git https://github.com/jcomellas/getopt v0.8.2
 dep_bullet = git https://github.com/extend/bullet.git master
 dep_amqp_client = git git://github.com/jbrisbin/amqp_client.git rabbitmq-3.4.0-community

@@ -9,6 +9,10 @@
 -export([init/1, terminate/2, code_change/3, handle_call/3,
          handle_cast/2, handle_info/2]).
 
+% Exported only for testing
+
+-export([timer_status/1]).
+
 -record(state, {
           user_id,
           user_data,
@@ -50,6 +54,7 @@ handle_cast({process_message, Message}, State = #state{timer = Timer}) ->
                end,
     {noreply, StateNew#state{timer = Timer2}};
 handle_cast({keepalive, From}, State = #state{timer = Timer, buffer = Buffer}) ->
+    % Long polling keeeping this connection alive
     Timer2 = reset_timer(Timer),
     case Buffer of
         [] -> ok;
@@ -215,12 +220,18 @@ send_transport(Transport, Msg, [], permanent) ->
     [];
 send_transport(Transport, Msg, Buffer, temporary) ->
     % open for one response, flush buffer
-    flush_buffer(Transport, [Msg|Buffer]),
+    flush_buffer(Transport, Buffer ++ [Msg]),
     [];
 send_transport(_Transport, Msg, Buffer, hiatus) ->
     % connection inactve, store
-    [Msg|Buffer].
+    Buffer ++ [Msg].
 
 flush_buffer(Transport, Msgs) ->
     Transport ! {list, Msgs}.
 
+%%
+% Testing helpers
+%%
+
+timer_status(#state{timer = Timer}) ->
+    erlang:read_timer(Timer).

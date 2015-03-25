@@ -4,7 +4,7 @@
 
 start_test_() ->
     {"It should be possible to start a connection",
-              [start_and_test_running()]
+              [start_and_test_running_permanent()]
     }.
 
 non_json_message_test_() ->
@@ -147,9 +147,36 @@ cannot_ask_for_presence_when_no_subscribed_test_() ->
         end
      }}.
 
+intermittent_connection_sets_timeout_test_() ->
+    test_set_timeout_intermittent().
+
+intermittent_connection_sends_lists_test_() ->
+    {"In long polling we will receive lists of messages",
+     {setup, 
+        fun start_intermittent_connection/0,
+        fun stop/1,
+        fun(Connection) ->
+                [intermittent_receive_a_list(Connection)]
+        end
+     }}.
+
+intermittent_hiatus_test_() ->
+    {"When long polling is discontinued we buffer the messages",
+     {setup, 
+        fun start_intermittent_connection/0,
+        fun stop/1,
+        fun(Connection) ->
+                [intermittent_receive_after_hiatus(Connection)]
+        end
+     }}.
+
 %% Helpers
 start_connection() ->
-    {ok, Connection} = carotene_connection:start(self()),
+    {ok, Connection} = carotene_connection:start(self(), permanent),
+    Connection.
+
+start_intermittent_connection() ->
+    {ok, Connection} = carotene_connection:start(self(), intermittent),
     Connection.
 
 stop(Connection) ->
@@ -168,9 +195,17 @@ subscribe(Connection) ->
     meck:unload(carotene_subscriber),
     meck:unload(carotene_subscriber_sup).
 
+flush() ->
+    receive
+        _ -> 
+            flush()
+    after 0 ->
+        ok
+    end.
+
 %% Tests
-start_and_test_running() ->
-    Res = carotene_connection:start(self()),
+start_and_test_running_permanent() ->
+    Res = carotene_connection:start(self(), permanent),
     ?_assertMatch({ok, _}, Res).
 
 try_process_non_json(Connection) ->
@@ -351,3 +386,30 @@ try_ask_presence_not_configured(Connection) ->
               after 2000 -> false
               end,
     ?_assertEqual(Expected, Obtained).
+
+test_set_timeout_intermittent() ->
+    {ok, State} = carotene_connection:init([self(), intermittent]),
+    ?_assertNotEqual(false, carotene_connection:timer_status(State)).
+
+intermittent_receive_a_list(Connection) ->
+    flush(),
+    Connection ! {received_message, hola},
+    Obtained = receive
+                  Message -> 
+                       Message
+              after 2000 -> false
+              end,
+    ?_assertEqual({list, [hola]}, Obtained).
+
+intermittent_receive_after_hiatus(Connection) ->
+    flush(),
+    Connection ! transport_hiatus,
+    Connection ! {received_message, hola},
+    Connection ! {received_message, amigo},
+    gen_server:cast(Connection, {keepalive, self()}),
+    Obtained = receive
+                  Message -> 
+                       Message
+              after 2000 -> false
+              end,
+    ?_assertEqual({list, [hola, amigo]}, Obtained).
