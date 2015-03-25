@@ -27,6 +27,9 @@ init(_Transport, Req, _Opts, Active) ->
 stream(_Data, Req, State = #state{connection = undefined}) ->
     %long polling posting message, but connection is not alive, discard it
     {ok, Req, State};
+stream(Data, Req, State = #state{active = false, connection = Connection}) ->
+    gen_server:cast(Connection, {process_message, Data}),
+    {ok, Req, State};
 stream(Data, Req, State = #state{connection = Connection}) ->
     gen_server:cast(Connection, {process_message, Data}),
     {ok, Req, State}.
@@ -62,7 +65,7 @@ terminate(_Req, _State) ->
 %%
 
 create_connection(intermittent) ->
-    Token = uuid:uuid4(),
+    Token = list_to_binary(uuid:to_string(uuid:uuid4())),
     {ok, CPid} = carotene_connection_sup:start_connection(self(), intermittent, Token),
     self() ! {send_token, Token},
     erlang:monitor(process, CPid),

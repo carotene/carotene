@@ -49,7 +49,14 @@ start_http(Dispatch) ->
                                                     {certfile, "/tmp/server.crt"},
                                                     {keyfile, "/tmp/server.key"}
                                                    ],
-                                        [{env, [{dispatch, Dispatch}]}]),
+                                        [{env, [{dispatch, Dispatch}
+                                               ]},
+                                         {middlewares, [
+                                                        cowboy_router,
+                                                        carotene_cors,
+                                                        cowboy_handler
+                                                       ]}
+                                        ]),
             io:format("HTTP server listening to port ~p~n", [Port]);
         {ok, SSLConf} -> start_https(Dispatch, Port, SSLConf)
     end.
