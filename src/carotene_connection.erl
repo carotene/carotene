@@ -45,12 +45,12 @@ init([From, permanent]) ->
 
 handle_cast({process_message, Message}, State = #state{timer = Timer}) ->
     Timer2 = reset_timer(Timer),
-    StateNew = case jsonx:decode(Message, [{format, proplist}]) of
-                   {error, invalid_json, _} -> 
-                       self() ! {just_send, <<"Non JSON message received">>},
-                       State;
+    StateNew = try jsx:decode(Message) of
                    Msg -> 
                        process_message(lists:keysort(1, Msg), State)
+               catch _:_ ->
+                         self() ! {just_send, <<"Non JSON message received">>},
+                         State
                end,
     {noreply, StateNew#state{timer = Timer2}};
 handle_cast({keepalive, From}, State = #state{timer = Timer, buffer = Buffer}) ->
@@ -87,8 +87,8 @@ handle_info({received_message, Msg}, State = #state{transport = Transport, buffe
     {noreply,State#state{buffer = NewBuffer}};
 
 handle_info({just_send, Msg}, State = #state{transport = Transport, buffer = Buffer, transport_state = TState}) ->
-    NewBuffer = send_transport(Transport, jsonx:encode([{<<"type">>, <<"info">>},
-                                                   {<<"payload">>, Msg}]), Buffer, TState),
+    NewBuffer = send_transport(Transport, jsx:encode([{<<"type">>, <<"info">>},
+                                                      {<<"payload">>, Msg}]), Buffer, TState),
     {noreply, State#state{buffer = NewBuffer}};
 
 handle_info(_Info, State) ->
@@ -121,7 +121,7 @@ process_message([{<<"subscribe">>, Channel}], State = #state{subscribers=Subs, u
     State#state{subscribers = NewSubs};
 
 process_message([{<<"channel">>, Channel}, {<<"publish">>, Message}], State = #state{publishers=Pubs, user_id=UserId, user_data=UserData}) ->
-    CompleteMessage = jsonx:encode([
+    CompleteMessage = jsx:encode([
                                   {<<"type">>, <<"message">>},
                                   {<<"message">>, Message},
                                   {<<"channel">>, Channel},
@@ -157,7 +157,7 @@ process_message([{<<"presence">>, Channel}], State = #state{subscribers=Subs}) -
                 error -> self() ! {just_send, <<"Cannot ask for presence when not subscribed to the channel">>};
                 {ok, _} ->
                     UsersSub = carotene_presence:presence(Channel),
-                    self() ! {presence_response, jsonx:encode([
+                    self() ! {presence_response, jsx:encode([
                                                              {<<"type">>, <<"presence">>},
                                                              {<<"subscribers">>, UsersSub},
                                                              {<<"channel">>, Channel}
@@ -174,7 +174,7 @@ process_message(_Msg, State) ->
 try_authenticate(AuthenticateUrl, AssumedUserId, Token, State = #state{subscribers = Subs, publishers = Pubs}) ->
     case httpc:request(post, {AuthenticateUrl, [], "application/x-www-form-urlencoded", "user_id="++binary_to_list(AssumedUserId)++"&token="++binary_to_list(Token)}, [], []) of
         {ok, {{_Version, 200, _ReasonPhrase}, _Headers, Body}} -> 
-            {UserId, UserData} = try lists:keysort(1, jsonx:decode(binary:list_to_bin(Body), [{format, proplist}])) of 
+            {UserId, UserData} = try lists:keysort(1, jsx:decode(binary:list_to_bin(Body))) of 
                                      [{<<"authenticated">>, true}, {<<"user_data">>, ResUserData}] ->
                                          self() ! {just_send, <<"Authenticated">>},
                                          update_users(AssumedUserId, Subs, Pubs),

@@ -25,15 +25,15 @@ ask_authentication(UserId, Channel, AuthConfig) ->
         {authorization_url, AuthorizeUrl} ->
             case  httpc:request(post, {AuthorizeUrl, [], "application/x-www-form-urlencoded", "user_id="++binary_to_list(UserId)++"&channel="++binary_to_list(Channel)}, [], []) of 
                 {ok, {{_Version, 200, _ReasonPhrase}, _Headers, Body}} ->
-                    case jsonx:decode(binary:list_to_bin(Body), [{format, proplist}]) of
-                        {error, invalid_json, _} ->
-                            <<"malformed json from server on authorization">>;
-                        [{<<"authorized">>, true}] ->
-                            true;
-                        [{<<"authorized">>, false}] ->
-                            <<"no authorization">>;
-                        _Smth ->
-                            <<"bad response from server on authorization">>
+                    try jsx:decode(binary:list_to_bin(Body)) of
+                        Response -> case Response of
+                                        [{<<"authorized">>, true}] -> true;
+                                        [{<<"authorized">>, false}] -> <<"no authorization">>;
+                                        _Smth -> 
+                                            <<"bad response from server on authorization">>
+                                    end
+                    catch _:_ ->
+                              <<"malformed json from server on authorization">>
                     end;
 
                 _ -> <<"bad response from server on authorization">>

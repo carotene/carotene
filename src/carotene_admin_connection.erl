@@ -27,13 +27,13 @@ init([]) ->
     {ok, State}.
 
 handle_call({publish, {channel, Channel}, {message, Message}}, _From, State) ->
-    JsonMessage = case jsonx:decode(Message, [{format, proplist}]) of
-                      {error, invalid_json, _} ->
+    JsonMessage = case jsx:is_json(Message) of
+                      true ->
                           Message;
-                      MessageDec ->
-                          MessageDec
+                      false -> 
+                          jsx:encode(Message)
                   end,
-    Payload = jsonx:encode([{<<"type">>, <<"message">>},
+    Payload = jsx:encode([{<<"type">>, <<"message">>},
                           {<<"message">>, JsonMessage},
                           {<<"channel">>, Channel}, 
                           {<<"from_server">>, <<"true">>}

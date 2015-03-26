@@ -9,7 +9,7 @@
                   cowboy,
                   rabbit_common,
                   amqp_client,
-                  jsonx,
+                  jsx,
                   uuid,
                   inets
                  ]},
