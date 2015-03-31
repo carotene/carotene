@@ -23,7 +23,7 @@ init([Client]) ->
 handle_info({'DOWN', _Ref, process, _Pid, _}, State) ->
     {stop, normal, State};
 
-handle_info({message, Msg}, #state{channel = Channel, reply_pid = ReplyPid} = State) ->
+handle_info({message, Msg}, #state{reply_pid = ReplyPid} = State) ->
     ReplyPid ! {received_message, Msg},
     {noreply, State};
 
