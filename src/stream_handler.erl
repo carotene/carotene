@@ -24,6 +24,8 @@ init(_Transport, Req, _Opts, Active) ->
                     end,
     {ok, Req, #state{active = Active, token = undefined, connection = ConnectionPid}}.
 
+stream(<<"ping">>, Req, State) ->
+    {reply, <<"pong">>, Req, State};
 stream(_Data, Req, State = #state{connection = undefined}) ->
     %long polling posting message, but connection is not alive, discard it
     {ok, Req, State};

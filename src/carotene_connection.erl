@@ -43,8 +43,13 @@ init([From, permanent]) ->
     {ok, #state{publishers = dict:new(), subscribers = dict:new(), transport = From, user_id = anonymous, transport_state = permanent, buffer = [], timer = undefined}}.
 
 
-handle_cast({process_message, Message}, State = #state{timer = Timer}) ->
-    Timer2 = reset_timer(Timer),
+handle_cast({process_message, Message}, State = #state{timer = Timer, transport_state = TS}) ->
+
+    Timer2 = case TS of
+                 permanent -> unefined;
+                 _ -> 
+                     reset_timer(Timer)
+             end,
     StateNew = try jsx:decode(Message) of
                    Msg -> 
                        process_message(lists:keysort(1, Msg), State)
@@ -203,6 +208,7 @@ publish(PublisherPid, CompleteMessage) ->
     end.
 
 reset_timer(Timer) ->
+
     case Timer of
         undefined -> 
             undefined;
