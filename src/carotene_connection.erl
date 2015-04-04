@@ -46,7 +46,7 @@ init([From, permanent]) ->
 handle_cast({process_message, Message}, State = #state{timer = Timer, transport_state = TS}) ->
 
     Timer2 = case TS of
-                 permanent -> unefined;
+                 permanent -> undefined;
                  _ -> 
                      reset_timer(Timer)
              end,
