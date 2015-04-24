@@ -9,7 +9,7 @@
 -export([presence_to_json/2]).
 
 init(_Type, Req, _Opts) ->
-    {IP, _Port} = cowboy_req:peer(Req),
+    {{IP, _Port}, _} = cowboy_req:peer(Req),
     case carotene_api_authorization:authorize(IP) of
         true -> {upgrade, protocol, cowboy_rest};
         false ->
