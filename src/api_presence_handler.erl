@@ -1,16 +1,17 @@
 -module(api_presence_handler).
 
--export([init/2]).
+-export([init/3]).
+-export([terminate/3]).
 -export([allowed_methods/2]).
 -export([content_types_provided/2]).
 -export([resource_exists/2]).
 
 -export([presence_to_json/2]).
 
-init(Req, Opts) ->
+init(_Type, Req, _Opts) ->
     {IP, _Port} = cowboy_req:peer(Req),
     case carotene_api_authorization:authorize(IP) of
-        true -> {cowboy_rest, Req, Opts};
+        true -> {upgrade, protocol, cowboy_rest};
         false ->
             {ok, Req2} = cowboy_req:reply(500, [
                                                 {<<"content-type">>, <<"text/plain">>}
@@ -27,10 +28,13 @@ content_types_provided(Req, State) ->
      ], Req, State}.
 
 presence_to_json(Req, Channel) ->
-    {_, UsersSub} = carotene_presence:presence(Channel),
-    Body = jsonx:encode(UsersSub),
+    UsersSub = carotene_presence:presence(Channel),
+    Body = jsx:encode(UsersSub),
     {Body, Req, Channel}.
 
 resource_exists(Req, _State) ->
-    Channel = cowboy_req:binding(channel, Req),
+    {Channel, _Bin} = cowboy_req:binding(channel, Req),
     {true, Req, Channel}.
+
+terminate(_Reason, _Req, _State) ->
+    ok.

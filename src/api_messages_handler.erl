@@ -1,17 +1,16 @@
 -module(api_messages_handler).
 
--export([init/2]).
+-export([init/3]).
+-export([terminate/3]).
 -export([allowed_methods/2]).
-%-export([content_types_provided/2]).
 -export([content_types_accepted/2]).
-%-export([resource_exists/2]).
 -export([publish_in_channel/3]).
 -export([publish_message/2]).
 
-init(Req, Opts) ->
+init(_Type, Req, _Opts) ->
     {IP, _Port} = cowboy_req:peer(Req),
     case carotene_api_authorization:authorize(IP) of
-        true -> {cowboy_rest, Req, Opts};
+        true -> {upgrade, protocol, cowboy_rest};
         false ->
             {ok, Req2} = cowboy_req:reply(500, [
                                                 {<<"content-type">>, <<"text/plain">>}
@@ -33,7 +32,7 @@ content_types_accepted(Req, State) ->
     ], Req, State}.
 
 publish_message(Req, State) ->
-    Channel = cowboy_req:binding(channel, Req),
+    {Channel, _Bin} = cowboy_req:binding(channel, Req),
     publish_in_channel(Channel, Req, State).
 
 publish_in_channel(Channel, Req, State) ->
@@ -41,3 +40,6 @@ publish_in_channel(Channel, Req, State) ->
     {_, Message} = lists:keyfind(<<"message">>, 1, PostParams),
     gen_server:call(carotene_admin_connection, {publish, {channel, Channel}, {message, Message}}),
     {true, Req2, State}.
+
+terminate(_Reason, _Req, _State) ->
+    ok.

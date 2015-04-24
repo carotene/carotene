@@ -1,16 +1,17 @@
 -module(api_channels_handler).
 
--export([init/2]).
+-export([init/3]).
+-export([terminate/3]).
 -export([allowed_methods/2]).
 -export([content_types_provided/2]).
 -export([resource_exists/2]).
 
 -export([channel_to_json/2]).
 
-init(Req, Opts) ->
+init(_Type, Req, _Opts) ->
     {IP, _Port} = cowboy_req:peer(Req),
     case carotene_api_authorization:authorize(IP) of
-        true -> {cowboy_rest, Req, Opts};
+        true -> {upgrade, protocol, cowboy_rest};
         false ->
             {ok, Req2} = cowboy_req:reply(500, [
                                                 {<<"content-type">>, <<"text/plain">>}
@@ -27,10 +28,10 @@ content_types_provided(Req, State) ->
      ], Req, State}.
 
 channel_to_json(Req, {index, Channels}) ->
-    Body = jsonx:encode(Channels),
+    Body = jsx:encode(Channels),
     {Body, Req, Channels};
 channel_to_json(Req, Channel) ->
-    Body = jsonx:encode([{<<"channel">>, Channel}]),
+    Body = jsx:encode([{<<"channel">>, Channel}]),
     {Body, Req, Channel}.
 
 resource_exists(Req, _State) ->
@@ -38,9 +39,12 @@ resource_exists(Req, _State) ->
     case cowboy_req:binding(channel, Req) of
         undefined ->
             {true, Req, {index, Exs}};
-        Channel ->
+        {Channel, _Bin} ->
             case lists:member(Channel, Exs) of
                 true -> {true, Req, Channel};
                 false -> {false, Req, Channel}
             end
     end.
+
+terminate(_Reason, _Req, _State) ->
+    ok.
