@@ -24,7 +24,9 @@ handle_info(shutdown, State) ->
 handle_call({presence, Channel}, _From, State) ->
     {UsersDup, _} = rpc:multicall(carotene_router, local_presence, [Channel]),
     UsersSub = sets:to_list(sets:from_list(lists:append(UsersDup))),
-    {reply, UsersSub, State}.
+    UsersSub2 = lists:delete(anonymous, UsersSub),
+    UsersSub3 = lists:delete(server, UsersSub2),
+    {reply, UsersSub3, State}.
 
 handle_cast(_Message, State) ->
     {noreply, State}.
