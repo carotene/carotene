@@ -44,10 +44,7 @@ start_http(Dispatch) ->
     case application:get_env(carotene, ssl) of
         undefined ->
             {ok, _} = cowboy:start_http(http, 100, [
-                                                    {port, Port},
-                                                    {cacertfile,  "/tmp/cowboy-ca.crt"},
-                                                    {certfile, "/tmp/server.crt"},
-                                                    {keyfile, "/tmp/server.key"}
+                                                    {port, Port}
                                                    ],
                                         [{env, [{dispatch, Dispatch}
                                                ]},
@@ -63,10 +60,6 @@ start_http(Dispatch) ->
 
 start_https(Dispatch, Port, SSLConf) ->
     % validate SSL config
-    Cacertfile = case find_ssl_conf(cacertfile, SSLConf) of
-                     error -> throw({ssl_config_error, "SSL enabled but no cacertfile specified"});
-                     Value -> Value
-                 end,
     Certfile = case find_ssl_conf(certfile, SSLConf) of
                      error -> throw({ssl_config_error, "SSL enabled but no certfile specified"});
                      Value2 -> Value2
@@ -78,11 +71,16 @@ start_https(Dispatch, Port, SSLConf) ->
 
     {ok, _} = cowboy:start_https(https, 100, [
                                             {port, Port},
-                                            {cacertfile,  Cacertfile},
                                             {certfile, Certfile},
                                             {keyfile, Keyfile}
                                            ],
-                                [{env, [{dispatch, Dispatch}]}]),
+                                 [{env, [{dispatch, Dispatch}]},
+                                  {middlewares, [
+                                                 cowboy_router,
+                                                 carotene_cors,
+                                                 cowboy_handler
+                                                ]}
+                                ]),
     io:format("HTTPS server listening to port ~p~n", [Port])
     .
 

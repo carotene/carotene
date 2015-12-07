@@ -11,6 +11,9 @@
                   amqp_client,
                   jsx,
                   uuid,
+                  asn1,
+                  public_key,
+                  ssl,
                   inets
                  ]},
   {mod, { carotene_app, []}},
