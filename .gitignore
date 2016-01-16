@@ -6,6 +6,5 @@ _rel/*
 priv/*
 .rebar/*
 test/*.beam
-templates/*
 erl_crash.dump
 .erlang.mk/*
